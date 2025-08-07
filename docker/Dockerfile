@@ -26,7 +26,7 @@ FROM alpine AS base
 
 RUN apk add --no-cache tini jq
 
-COPY run.sh /
+COPY docker/run.sh /
 RUN chmod a+x /run.sh
 
 COPY --from=build /build/scaleconnect /usr/local/bin/
