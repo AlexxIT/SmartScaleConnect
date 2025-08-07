@@ -22,7 +22,9 @@
 
 ## Fast start
 
-Download binary.
+- Download binary for your OS from [latest release](https://github.com/AlexxIT/SmartScaleConnect/releases/).
+- Or use the Docker [container](https://hub.docker.com/r/alexxit/smartscaleconnect).
+- Or add Home Assistant [add-on](https://my.home-assistant.io/redirect/supervisor_addon/?addon=a889bffc_scaleconnect&repository_url=https%3A%2F%2Fgithub.com%2FAlexxIT%2Fhassio-addons).
 
 ## Configuration
 
