@@ -1,0 +1,121 @@
+name: Build and Push
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - 'v*'
+
+jobs:
+  build-binaries:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    env: { CGO_ENABLED: 0 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with: { go-version: '1.24' }
+
+      - name: Build scaleconnect_win64
+        env: { GOOS: windows, GOARCH: amd64 }
+        run: go build -ldflags "-s -w" -trimpath -o scaleconnect.exe
+      - name: Upload scaleconnect_win64
+        uses: actions/upload-artifact@v4
+        with: { name: scaleconnect_win64, path: scaleconnect.exe }
+
+      - name: Build scaleconnect_linux_amd64
+        env: { GOOS: linux, GOARCH: amd64 }
+        run: go build -ldflags "-s -w" -trimpath -o scaleconnect
+      - name: Upload scaleconnect_linux_amd64
+        uses: actions/upload-artifact@v4
+        with: { name: scaleconnect_linux_amd64, path: scaleconnect }
+
+      - name: Build scaleconnect_linux_arm64
+        env: { GOOS: linux, GOARCH: arm64 }
+        run: go build -ldflags "-s -w" -trimpath -o scaleconnect
+      - name: Upload scaleconnect_linux_arm64
+        uses: actions/upload-artifact@v4
+        with: { name: scaleconnect_linux_arm64, path: scaleconnect }
+
+      - name: Build scaleconnect_linux_arm
+        env: { GOOS: linux, GOARCH: arm, GOARM: 7 }
+        run: go build -ldflags "-s -w" -trimpath -o scaleconnect
+      - name: Upload scaleconnect_linux_arm
+        uses: actions/upload-artifact@v4
+        with: { name: scaleconnect_linux_arm, path: scaleconnect }
+
+      - name: Build scaleconnect_mac_amd64
+        env: { GOOS: darwin, GOARCH: amd64 }
+        run: go build -ldflags "-s -w" -trimpath -o scaleconnect
+      - name: Upload scaleconnect_mac_amd64
+        uses: actions/upload-artifact@v4
+        with: { name: scaleconnect_mac_amd64, path: scaleconnect }
+
+      - name: Build scaleconnect_mac_arm64
+        env: { GOOS: darwin, GOARCH: arm64 }
+        run: go build -ldflags "-s -w" -trimpath -o scaleconnect
+      - name: Upload scaleconnect_mac_arm64
+        uses: actions/upload-artifact@v4
+        with: { name: scaleconnect_mac_arm64, path: scaleconnect }
+
+  docker-master:
+    name: Build docker master
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ github.repository }}
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}},enable=false
+            type=match,pattern=v(.*),group=1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: |
+            linux/amd64
+            linux/386
+            linux/arm/v6
+            linux/arm/v7
+            linux/arm64/v8
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
