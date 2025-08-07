@@ -20,6 +20,25 @@
 
 **Attention.** The application is at an early stage of development. The configuration and functionality can change a lot.
 
+---
+
+<!-- TOC -->
+  * [Fast start](#fast-start)
+  * [Configuration](#configuration)
+    * [Garmin](#garmin)
+    * [Xiaomi Mi Fitness](#xiaomi-mi-fitness)
+    * [Zepp Life](#zepp-life)
+    * [My TANINA](#my-tanina)
+    * [Fitbit](#fitbit)
+    * [CSV](#csv)
+    * [JSON](#json)
+    * [Home Assistant](#home-assistant)
+  * [Sync logic](#sync-logic)
+  * [Scripting language](#scripting-language)
+  * [Known Scales](#known-scales)
+  * [Useful links](#useful-links)
+<!-- TOC -->
+
 ## Fast start
 
 - Download binary for your OS from [latest release](https://github.com/AlexxIT/SmartScaleConnect/releases/).
