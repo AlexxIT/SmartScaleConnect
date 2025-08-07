@@ -1,0 +1,14 @@
+.idea/
+.tmp/
+
+scaleconnect.yaml
+scaleconnect.json
+
+scaleconnect_freebsd*
+scaleconnect_linux*
+scaleconnect_mac*
+scaleconnect_win*
+
+0_test.go
+
+.DS_Store
