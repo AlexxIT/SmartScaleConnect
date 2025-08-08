@@ -70,7 +70,7 @@ func getWeights(config string) ([]*core.Weight, error) {
 		}
 		return acc.GetAllWeights()
 
-	case "xiaomi", "zepp/xiaomi":
+	case "picooc", "xiaomi", "zepp/xiaomi":
 		acc, err := GetAccount(fields)
 		if err != nil {
 			return nil, err

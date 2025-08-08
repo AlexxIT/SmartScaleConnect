@@ -5,6 +5,7 @@ import (
 
 	"github.com/AlexxIT/SmartScaleConnect/pkg/core"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/garmin"
+	"github.com/AlexxIT/SmartScaleConnect/pkg/picooc"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/tanita"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/xiaomi"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/zepp"
@@ -34,6 +35,8 @@ func getAccount(fields []string, key string) (core.Account, error) {
 	switch fields[0] {
 	case "garmin":
 		acc = garmin.NewClient()
+	case "picooc":
+		acc = picooc.NewClient()
 	case "tanita":
 		acc = tanita.NewClient()
 	case "xiaomi":

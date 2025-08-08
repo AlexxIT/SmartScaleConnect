@@ -160,7 +160,7 @@ Getting data from all scales of the selected user:
 
 ```yaml
 sync_zepp:
-  from: zepp/xiaomi {username} {password} {username}
+  from: zepp/xiaomi {username} {password} {user}
   to: csv alex_zepp.csv
 ```
 
@@ -172,6 +172,24 @@ On Tanita servers, the weighing time is stored with an unknown time zone and may
 sync_tanita:
   from: tanita {username} {password}
   to: csv alex_tanita.csv
+```
+
+### Picooc
+
+Get data from all scales of the main user:
+
+```yaml
+sync_picooc:
+  from: picooc {username} {password}
+  to: csv alex_picooc.csv
+```
+
+Getting data from all scales of the selected user:
+
+```yaml
+sync_picooc:
+  from: picooc {username} {password} {user}
+  to: csv alex_picooc.csv
 ```
 
 ### Fitbit
