@@ -15,8 +15,6 @@ import (
 	"github.com/AlexxIT/SmartScaleConnect/pkg/fitbit"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/garmin"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/garmin/fit"
-	"github.com/AlexxIT/SmartScaleConnect/pkg/xiaomi"
-	"github.com/AlexxIT/SmartScaleConnect/pkg/zepp"
 )
 
 var cache = map[string][]*core.Weight{}
@@ -72,29 +70,17 @@ func getWeights(config string) ([]*core.Weight, error) {
 		}
 		return acc.GetAllWeights()
 
-	case "xiaomi":
+	case "xiaomi", "zepp/xiaomi":
 		acc, err := GetAccount(fields)
 		if err != nil {
 			return nil, err
 		}
 
-		if len(fields) >= 4 {
-			return acc.(*xiaomi.Client).GetScaleWeights(fields[3])
+		if len(fields) < 4 {
+			return acc.GetAllWeights()
 		}
 
-		return acc.GetAllWeights()
-
-	case "zepp/xiaomi":
-		acc, err := GetAccount(fields)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(fields) >= 4 {
-			return acc.(*zepp.Client).GetUserWeights(fields[3])
-		}
-
-		return acc.GetAllWeights()
+		return acc.(core.AccountWithFilter).GetFilterWeights(fields[3])
 	}
 
 	return nil, errors.New("unsupported type: " + fields[0])

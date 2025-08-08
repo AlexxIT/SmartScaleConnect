@@ -10,3 +10,7 @@ type AccountWithToken interface {
 	LoginWithToken(token string) error
 	Token() string
 }
+
+type AccountWithFilter interface {
+	GetFilterWeights(name string) ([]*Weight, error)
+}

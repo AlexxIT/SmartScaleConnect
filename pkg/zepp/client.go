@@ -27,10 +27,10 @@ func NewClient() *Client {
 }
 
 func (c *Client) GetAllWeights() ([]*core.Weight, error) {
-	return c.GetUserWeights("")
+	return c.GetFilterWeights("")
 }
 
-func (c *Client) GetUserWeights(name string) ([]*core.Weight, error) {
+func (c *Client) GetFilterWeights(name string) ([]*core.Weight, error) {
 	familyID, err := c.GetFamilyID(name)
 	if err != nil {
 		return nil, err

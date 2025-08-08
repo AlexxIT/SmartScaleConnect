@@ -202,7 +202,7 @@ func (c *Client) GetFamilyMembers() (map[int64]string, error) {
 	return accounts, nil
 }
 
-func (c *Client) GetScaleWeights(model string) ([]*core.Weight, error) {
+func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
 	var weights []*core.Weight
 
 	ts := time.Now().UnixMilli()
