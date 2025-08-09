@@ -4,7 +4,7 @@
 
 **Features:**
 
-- Load data from [Garmin], Zepp Life, Mi Fitness, [My TANITA], [CSV], [JSON]
+- Load data from [Garmin], [Mi Fitness], [My TANITA], [Picooc], [Zepp Life], [CSV], [JSON]
 - Save data to [Garmin], [Home Assistant], [CSV], [JSON]
 - Support params: `Weight`, `BMI`, `Body Fat`, `Body Water`, `Bone Mass`, `Metabolic Age`, `Muscle Mass`, `Physique Rating`, `Visceral Fat`, `Basal Metabolism`, `Heart Rate`, `Skeletal Muscle Mass`
 - Support multiple users data
@@ -12,7 +12,10 @@
 
 [Garmin]: https://connect.garmin.com/
 [Home Assistant]: https://www.home-assistant.io/
+[Mi Fitness]: https://play.google.com/store/apps/details?id=com.xiaomi.wearable
 [My TANITA]: https://mytanita.eu/
+[Picooc]: https://play.google.com/store/apps/details?id=com.picooc.international
+[Zepp Life]: https://play.google.com/store/apps/details?id=com.xiaomi.hm.health
 [CSV]: https://en.wikipedia.org/wiki/Comma-separated_values
 [JSON]: https://en.wikipedia.org/wiki/JSON
 
