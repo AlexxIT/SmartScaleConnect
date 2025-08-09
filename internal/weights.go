@@ -91,6 +91,10 @@ func SetWeights(config string, src []*core.Weight) error {
 
 	switch fields[0] {
 	case "csv", "json":
+		if strings.Contains(fields[1], "://") {
+			return postFile(config, src)
+		}
+
 		// important read file before os.Create
 		dst := appendFile(config, src)
 
@@ -232,6 +236,38 @@ func appendGarmin(config string, src []*core.Weight) error {
 	}
 
 	return nil
+}
+
+func postFile(config string, src []*core.Weight) (err error) {
+	// skip zero weights
+	dst := make([]*core.Weight, 0, len(src))
+	for _, weight := range src {
+		if weight.Weight != 0 {
+			dst = append(dst, weight)
+		}
+	}
+
+	// sort weights (latest last)
+	slices.SortFunc(dst, func(a, b *core.Weight) int {
+		return a.Date.Compare(b.Date)
+	})
+
+	body := bytes.NewBuffer(nil)
+
+	switch fields := strings.Fields(config); fields[0] {
+	case "csv":
+		if err = csv.Write(body, dst); err != nil {
+			return err
+		}
+		_, err = http.Post(fields[1], "text/csv", body)
+	case "json":
+		if err = json.NewEncoder(body).Encode(dst); err != nil {
+			return err
+		}
+		_, err = http.Post(fields[1], "application/json", body)
+	}
+
+	return
 }
 
 func postLatest(config string, src []*core.Weight) error {
