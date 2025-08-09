@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 func main() {
 	log.Printf("SmartScaleConnect version %s %s/%s\n", Version, runtime.GOOS, runtime.GOARCH)
