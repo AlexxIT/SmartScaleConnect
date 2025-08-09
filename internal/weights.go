@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/AlexxIT/SmartScaleConnect/pkg/core"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/csv"
@@ -35,9 +36,25 @@ func GetWeights(config string) ([]*core.Weight, error) {
 }
 
 func getWeights(config string) ([]*core.Weight, error) {
-	fields := strings.Fields(config)
+	switch config[0] {
+	case '{':
+		var weight core.Weight
+		if err := json.Unmarshal([]byte(config), &weight); err != nil {
+			return nil, err
+		}
+		if weight.Date.IsZero() {
+			weight.Date = time.Now()
+		}
+		return []*core.Weight{&weight}, nil
+	case '[':
+		var weights []*core.Weight
+		if err := json.Unmarshal([]byte(config), &weights); err != nil {
+			return nil, err
+		}
+		return weights, nil
+	}
 
-	switch fields[0] {
+	switch fields := strings.Fields(config); fields[0] {
 	case "csv":
 		rd, err := openFile(fields[1])
 		if err != nil {
@@ -81,15 +98,14 @@ func getWeights(config string) ([]*core.Weight, error) {
 		}
 
 		return acc.(core.AccountWithFilter).GetFilterWeights(fields[3])
-	}
 
-	return nil, errors.New("unsupported type: " + fields[0])
+	default:
+		return nil, errors.New("unsupported type: " + fields[0])
+	}
 }
 
 func SetWeights(config string, src []*core.Weight) error {
-	fields := strings.Fields(config)
-
-	switch fields[0] {
+	switch fields := strings.Fields(config); fields[0] {
 	case "csv", "json":
 		if strings.Contains(fields[1], "://") {
 			return postFile(config, src)
@@ -115,9 +131,10 @@ func SetWeights(config string, src []*core.Weight) error {
 
 	case "json/latest":
 		return postLatest(config, src)
-	}
 
-	return errors.New("unsupported type: " + fields[0])
+	default:
+		return errors.New("unsupported type: " + fields[0])
+	}
 }
 
 func openFile(path string) (io.ReadCloser, error) {
