@@ -29,6 +29,7 @@
     * [Xiaomi Mi Fitness](#xiaomi-mi-fitness)
     * [Zepp Life](#zepp-life)
     * [My TANINA](#my-tanina)
+    * [Picooc](#picooc)
     * [Fitbit](#fitbit)
     * [CSV](#csv)
     * [JSON](#json)
@@ -212,7 +213,7 @@ sync_fitbit:
 
 A good format for human-readable text. The time inside the file is always your local time. Well-supported in MS Office. It is convenient to build quick analytics there.
 
-You can use [CSV] file or HTTP-link as source and CSV file as destination:
+You can use [CSV] file or HTTP-link as source and CSV file or HTTP-link as destination:
 
 ```yaml
 sync_csv:
