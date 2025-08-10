@@ -138,9 +138,11 @@ func (c *Client) GetAllWeights() ([]*core.Weight, error) {
 
 				MetabolicAge: res2.BodyAge,    // 36
 				MuscleMass:   res2.MuscleMass, // 53.3
+				ProteinMass:  res2.ProteinMass,
 				VisceralFat:  int(res2.VisceralFat),
 
 				BasalMetabolism:    res2.BasalMetabolism,
+				BodyScore:          res2.BodyScore,
 				HeartRate:          res2.BPM,
 				SkeletalMuscleMass: res2.SkeletalMuscleMass,
 
@@ -386,9 +388,11 @@ func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
 
 					w.MetabolicAge = parseInt(v3.BodyAge)
 					w.MuscleMass = parseFloat(v3.MuscleMass)
+					w.ProteinMass = parseFloat(v3.ProteinMass)
 					w.VisceralFat = parseInt(v3.VisceralFat)
 
 					w.BasalMetabolism = parseInt(v3.BasalMetabolic)
+					w.BodyScore = parseInt(v3.BodyScore)
 					w.SkeletalMuscleMass = parseFloat(v3.SkeletalMuscleMass)
 				}
 
