@@ -27,7 +27,6 @@ type Weight struct {
 	BodyScore          int     `json:"BodyScore,omitempty"`          // points
 	HeartRate          int     `json:"HeartRate,omitempty"`          // beats per minute
 	Height             float32 `json:"Height,omitempty"`             // cm
-	Impedance          int     `json:"Impedance,omitempty"`          // ohm
 	SkeletalMuscleMass float32 `json:"SkeletalMuscleMass,omitempty"` // kg
 
 	User   string `json:"User,omitempty"`
@@ -55,6 +54,5 @@ func Equal(w1, w2 *Weight) bool {
 		w1.BodyScore == w2.BodyScore &&
 		w1.HeartRate == w2.HeartRate &&
 		w1.Height == w2.Height &&
-		w1.Impedance == w2.Impedance &&
 		w1.SkeletalMuscleMass == w2.SkeletalMuscleMass
 }

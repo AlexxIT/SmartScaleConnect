@@ -93,7 +93,6 @@ func (c *Client) GetFilterWeights(name string) ([]*core.Weight, error) {
 				BasalMetabolism: int(record.Summary.Metabolism),
 				BodyScore:       record.Summary.BodyScore,
 				Height:          record.Summary.Height,
-				Impedance:       record.Summary.Impedance,
 
 				User:   name,
 				Source: record.DeviceId,
@@ -298,8 +297,7 @@ func (c *Client) Equal(w1, w2 *core.Weight) bool {
 		w1.VisceralFat == w2.VisceralFat &&
 		w1.BasalMetabolism == w2.BasalMetabolism &&
 		w1.BodyScore == w2.BodyScore &&
-		equalFloat(w1.Height, w2.Height) &&
-		w1.Impedance == w2.Impedance
+		equalFloat(w1.Height, w2.Height)
 }
 
 const (
