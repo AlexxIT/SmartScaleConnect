@@ -56,6 +56,8 @@ func Read(r io.Reader) ([]*core.Weight, error) {
 				w.MuscleMass = parseFloat(record[i])
 			case "PhysiqueRating":
 				w.PhysiqueRating = parseInt(record[i])
+			case "ProteinMass":
+				w.ProteinMass = parseFloat(record[i])
 			case "VisceralFat":
 				w.VisceralFat = parseInt(record[i])
 			case "BasalMetabolism":
@@ -118,6 +120,7 @@ func Marshal(weight *core.Weight) []byte {
 	b = appendInt(b, weight.MetabolicAge)
 	b = appendFloat(b, weight.MuscleMass)
 	b = appendInt(b, weight.PhysiqueRating)
+	b = appendFloat(b, weight.ProteinMass)
 	b = appendInt(b, weight.VisceralFat)
 
 	b = appendInt(b, weight.BasalMetabolism)
