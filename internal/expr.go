@@ -19,9 +19,9 @@ func Expr(config map[string]string, weights []*core.Weight) error {
 		switch key {
 		case "Date":
 			opt = expr.AsAny()
-		case "Weight", "BMI", "BodyFat", "BodyWater", "BoneMass", "MuscleMass", "SkeletalMuscleMass":
+		case "Weight", "BMI", "BodyFat", "BodyWater", "BoneMass", "MuscleMass", "ProteinMass", "Height", "SkeletalMuscleMass":
 			opt = expr.AsFloat64()
-		case "MetabolicAge", "PhysiqueRating", "VisceralFat", "BasalMetabolism", "HeartRate":
+		case "MetabolicAge", "PhysiqueRating", "VisceralFat", "BasalMetabolism", "BodyScore", "HeartRate":
 			opt = expr.AsInt()
 		case "User", "Source":
 			opt = expr.AsKind(reflect.String)
@@ -65,12 +65,18 @@ func Expr(config map[string]string, weights []*core.Weight) error {
 				weight.MuscleMass = float32(v.(float64))
 			case "PhysiqueRating":
 				weight.PhysiqueRating = v.(int)
+			case "ProteinMass":
+				weight.ProteinMass = float32(v.(float64))
 			case "VisceralFat":
 				weight.VisceralFat = v.(int)
 			case "BasalMetabolism":
 				weight.BasalMetabolism = v.(int)
+			case "BodyScore":
+				weight.BodyScore = v.(int)
 			case "HeartRate":
 				weight.HeartRate = v.(int)
+			case "Height":
+				weight.Height = float32(v.(float64))
 			case "SkeletalMuscleMass":
 				weight.SkeletalMuscleMass = float32(v.(float64))
 			case "User":
