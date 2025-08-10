@@ -14,3 +14,9 @@ type AccountWithToken interface {
 type AccountWithFilter interface {
 	GetFilterWeights(name string) ([]*Weight, error)
 }
+
+type AccountWithAddWeights interface {
+	AddWeights(weights []*Weight) error
+	DeleteWeight(weight *Weight) error
+	Equal(a, b *Weight) bool
+}

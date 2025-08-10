@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AlexxIT/SmartScaleConnect/pkg/core"
+	"github.com/AlexxIT/SmartScaleConnect/pkg/garmin/fit"
 	"github.com/gomodule/oauth1/oauth"
 )
 
@@ -164,6 +165,36 @@ func (c *Client) GetWeight(start, end string) ([]*core.Weight, error) {
 	return weights, nil
 }
 
+func (c *Client) AddWeights(weights []*core.Weight) error {
+	if len(c.weightID) == 0 {
+		return nil
+	}
+
+	for len(weights) != 0 {
+		var chunk []*core.Weight
+
+		// Garmin fails on big files
+		if len(weights) > 200 {
+			chunk = weights[:200]
+			weights = weights[200:]
+		} else {
+			chunk = weights
+			weights = nil
+		}
+
+		buf := bytes.NewBuffer(nil)
+		if err := fit.WriteWeight(buf, chunk...); err != nil {
+			return err
+		}
+
+		if err := c.Upload("new.fit", buf.Bytes()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (c *Client) DeleteWeight(weight *core.Weight) error {
 	weightID, ok := c.weightID[weight.Date.UnixMilli()]
 	if !ok {
@@ -177,4 +208,26 @@ func (c *Client) DeleteWeight(weight *core.Weight) error {
 	defer res.Body.Close()
 
 	return nil
+}
+
+func (c *Client) Equal(w1, w2 *core.Weight) bool {
+	return equalFloat(w1.Weight, w2.Weight) &&
+		equalFloat(w1.BMI, w2.BMI) &&
+		equalFloat(w1.BodyFat, w2.BodyFat) &&
+		equalFloat(w1.BodyWater, w2.BodyWater) &&
+		equalFloat(w1.BoneMass, w2.BoneMass) &&
+		w1.MetabolicAge == w2.MetabolicAge &&
+		w1.PhysiqueRating == w2.PhysiqueRating &&
+		w1.VisceralFat == w2.VisceralFat &&
+		equalFloat(w1.SkeletalMuscleMass, w2.SkeletalMuscleMass)
+}
+
+func equalFloat(f1, f2 float32) bool {
+	if f1 == f2 {
+		return true
+	}
+	if f1 > f2 {
+		return f1-f2 < 0.1
+	}
+	return f2-f1 < 0.1
 }

@@ -14,8 +14,6 @@ import (
 	"github.com/AlexxIT/SmartScaleConnect/pkg/core"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/csv"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/fitbit"
-	"github.com/AlexxIT/SmartScaleConnect/pkg/garmin"
-	"github.com/AlexxIT/SmartScaleConnect/pkg/garmin/fit"
 )
 
 var cache = map[string][]*core.Weight{}
@@ -126,8 +124,8 @@ func SetWeights(config string, src []*core.Weight) error {
 			return json.NewEncoder(f).Encode(dst)
 		}
 
-	case "garmin":
-		return appendGarmin(config, src)
+	case "garmin", "zepp/xiaomi":
+		return appendAccount(config, src)
 
 	case "json/latest":
 		return postLatest(config, src)
@@ -186,7 +184,7 @@ func appendFile(config string, src []*core.Weight) []*core.Weight {
 	return dst
 }
 
-func appendGarmin(config string, src []*core.Weight) error {
+func appendAccount(config string, src []*core.Weight) error {
 	dst, err := GetWeights(config)
 	if err != nil {
 		return err
@@ -197,7 +195,7 @@ func appendGarmin(config string, src []*core.Weight) error {
 		return err
 	}
 
-	client := acc.(*garmin.Client)
+	client := acc.(core.AccountWithAddWeights)
 
 	var add []*core.Weight
 
@@ -213,7 +211,7 @@ func appendGarmin(config string, src []*core.Weight) error {
 				if err = client.DeleteWeight(d); err != nil {
 					return err
 				}
-			} else if !garmin.Equal(s, d) {
+			} else if !client.Equal(s, d) {
 				// replace
 				if err = client.DeleteWeight(d); err != nil {
 					return err
@@ -231,28 +229,11 @@ func appendGarmin(config string, src []*core.Weight) error {
 		}
 	}
 
-	for len(add) != 0 {
-		var chunk []*core.Weight
-
-		if len(add) > 200 {
-			chunk = add[:200]
-			add = add[200:]
-		} else {
-			chunk = add
-			add = nil
-		}
-
-		buf := bytes.NewBuffer(nil)
-		if err = fit.WriteWeight(buf, chunk...); err != nil {
-			return err
-		}
-
-		if err = client.Upload("new.fit", buf.Bytes()); err != nil {
-			return err
-		}
+	if len(add) == 0 {
+		return nil
 	}
 
-	return nil
+	return client.AddWeights(add)
 }
 
 func postFile(config string, src []*core.Weight) (err error) {
