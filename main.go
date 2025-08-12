@@ -35,26 +35,26 @@ func main() {
 	}
 
 	var (
-		confName    string
-		interactive bool
+		config      string
 		repeat      string
+		interactive bool
 	)
 
 	flag.Usage = func() { fmt.Print(usage) }
-	flag.StringVar(&confName, "config", "", "")
-	flag.StringVar(&confName, "c", "", "")
-	flag.BoolVar(&interactive, "interactive", false, "")
-	flag.BoolVar(&interactive, "i", false, "")
+	flag.StringVar(&config, "config", "", "")
+	flag.StringVar(&config, "c", "", "")
 	flag.StringVar(&repeat, "repeat", "", "")
 	flag.StringVar(&repeat, "r", "", "")
+	flag.BoolVar(&interactive, "interactive", false, "")
+	flag.BoolVar(&interactive, "i", false, "")
 	flag.Parse()
 
 	log.Printf("scaleconnect version %s\n", Version)
 
-	data, err := readConfig(confName)
+	data, err := readConfig(config)
 
 	// run config once
-	if !interactive && repeat == "" {
+	if repeat == "" && !interactive {
 		if err != nil {
 			log.Fatal(err)
 		}
