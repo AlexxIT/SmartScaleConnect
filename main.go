@@ -134,22 +134,23 @@ func readConfig(name string) ([]byte, error) {
 	}
 
 	// check config file in CWD
-	if f, err := os.ReadFile(configName); err == nil {
-		return f, nil
+	if data, err := os.ReadFile(configName); err == nil {
+		return data, nil
 	}
 
 	ex, err := os.Executable()
 	if err != nil {
 		return nil, err
 	}
+	path := filepath.Dir(ex)
 
-	// set CWD to app dir
-	if err = os.Chdir(filepath.Dir(ex)); err != nil {
+	data, err := os.ReadFile(filepath.Join(path, configName))
+	if err != nil {
 		return nil, err
 	}
 
-	// check config file again
-	return os.ReadFile(configName)
+	// change CWD so json file will be near app
+	return data, os.Chdir(path)
 }
 
 func process(data []byte) error {
