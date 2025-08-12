@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -16,42 +17,43 @@ import (
 	"github.com/AlexxIT/SmartScaleConnect/pkg/fitbit"
 )
 
-var cache = map[string][]*core.Weight{}
+func GetWeights(from any) ([]*core.Weight, error) {
+	switch from.(type) {
+	case string:
+		return getWeights(from.(string))
 
-func GetWeights(config string) ([]*core.Weight, error) {
-	if weights, ok := cache[config]; ok {
-		return weights, nil
-	}
+	case map[string]any:
+		data, err := json.Marshal(from)
+		if err != nil {
+			return nil, err
+		}
 
-	weights, err := getWeights(config)
-	if err != nil {
-		return nil, err
-	}
-
-	cache[config] = weights
-
-	return weights, nil
-}
-
-func getWeights(config string) ([]*core.Weight, error) {
-	switch config[0] {
-	case '{':
-		var weight core.Weight
-		if err := json.Unmarshal([]byte(config), &weight); err != nil {
+		var weight *core.Weight
+		if err = json.Unmarshal(data, &weight); err != nil {
 			return nil, err
 		}
 		if weight.Date.IsZero() {
 			weight.Date = time.Now()
 		}
-		return []*core.Weight{&weight}, nil
-	case '[':
+		return []*core.Weight{weight}, nil
+
+	case []any:
+		data, err := json.Marshal(from)
+		if err != nil {
+			return nil, err
+		}
+
 		var weights []*core.Weight
-		if err := json.Unmarshal([]byte(config), &weights); err != nil {
+		if err = json.Unmarshal(data, &weights); err != nil {
 			return nil, err
 		}
 		return weights, nil
 	}
 
+	return nil, fmt.Errorf("wrong from format: %v", from)
+}
+
+func getWeights(config string) ([]*core.Weight, error) {
 	switch fields := strings.Fields(config); fields[0] {
 	case "csv":
 		rd, err := openFile(fields[1])
@@ -105,24 +107,7 @@ func getWeights(config string) ([]*core.Weight, error) {
 func SetWeights(config string, src []*core.Weight) error {
 	switch fields := strings.Fields(config); fields[0] {
 	case "csv", "json":
-		if strings.Contains(fields[1], "://") {
-			return postFile(config, src)
-		}
-
-		// important read file before os.Create
-		dst := appendFile(config, src)
-
-		f, err := os.Create(fields[1])
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		if fields[0] == "csv" {
-			return csv.Write(f, dst)
-		} else {
-			return json.NewEncoder(f).Encode(dst)
-		}
+		return writeFile(config, src)
 
 	case "garmin", "zepp/xiaomi":
 		return appendAccount(config, src)
@@ -151,10 +136,38 @@ func openFile(path string) (io.ReadCloser, error) {
 	}
 }
 
-func appendFile(config string, src []*core.Weight) []*core.Weight {
+func writeFile(config string, src []*core.Weight) error {
+	fields := strings.Fields(config)
+	format := fields[0]
+	filename := fields[1]
+
+	if strings.Contains(filename, "://") {
+		return postFile(format, filename, src)
+	}
+
+	if filename == "stdout" {
+		return writeToStdout(format, src)
+	}
+
+	// important read file before os.Create
 	// empty dst file is OK
 	dst, _ := GetWeights(config)
+	dst = appendFile(dst, src)
 
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if format == "csv" {
+		return csv.Write(f, dst)
+	} else {
+		return json.NewEncoder(f).Encode(dst)
+	}
+}
+
+func appendFile(dst, src []*core.Weight) []*core.Weight {
 	for _, s := range src {
 		i := slices.IndexFunc(dst, func(d *core.Weight) bool {
 			return s.Date.Unix() == d.Date.Unix()
@@ -236,7 +249,7 @@ func appendAccount(config string, src []*core.Weight) error {
 	return client.AddWeights(add)
 }
 
-func postFile(config string, src []*core.Weight) (err error) {
+func prepareFile(src []*core.Weight) []*core.Weight {
 	// skip zero weights
 	dst := make([]*core.Weight, 0, len(src))
 	for _, weight := range src {
@@ -250,19 +263,23 @@ func postFile(config string, src []*core.Weight) (err error) {
 		return a.Date.Compare(b.Date)
 	})
 
-	body := bytes.NewBuffer(nil)
+	return dst
+}
 
-	switch fields := strings.Fields(config); fields[0] {
-	case "csv":
+func postFile(format, url string, src []*core.Weight) (err error) {
+	body := bytes.NewBuffer(nil)
+	dst := prepareFile(src)
+
+	if format == "csv" {
 		if err = csv.Write(body, dst); err != nil {
 			return err
 		}
-		_, err = http.Post(fields[1], "text/csv", body)
-	case "json":
+		_, err = http.Post(url, "text/csv", body)
+	} else {
 		if err = json.NewEncoder(body).Encode(dst); err != nil {
 			return err
 		}
-		_, err = http.Post(fields[1], "application/json", body)
+		_, err = http.Post(url, "application/json", body)
 	}
 
 	return
@@ -295,4 +312,14 @@ func postLatest(config string, src []*core.Weight) error {
 	}
 
 	return nil
+}
+
+func writeToStdout(format string, src []*core.Weight) error {
+	dst := prepareFile(src)
+
+	if format == "csv" {
+		return csv.Write(os.Stdout, dst)
+	} else {
+		return json.NewEncoder(os.Stdout).Encode(dst)
+	}
 }

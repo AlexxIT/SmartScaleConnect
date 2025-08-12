@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/AlexxIT/SmartScaleConnect/internal"
 	"gopkg.in/yaml.v3"
@@ -15,65 +20,149 @@ const Version = "0.2.0"
 
 const usage = `Usage of scaleconnect:
 
-  -c, --config  Path to config file
-  -s, --sync    Sync name from scaleconnect.yaml
-  -f, --from    From string
-  -t, --to      To string
+  -c, --config       Path to config file
+  -i, --interactive  Keep STDIN open
+  -r, --repeat       Run config every N time (format: 2h45m)
 `
 
 func main() {
-	var confName, sync, from, to string
+	// read stdin, process and exit
+	if data := readStdin(); data != nil {
+		if err := process(data); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
-	flag.StringVar(&sync, "config", "", "")
-	flag.StringVar(&sync, "c", "", "")
-	flag.StringVar(&sync, "sync", "", "")
-	flag.StringVar(&sync, "s", "", "")
-	flag.StringVar(&from, "from", "", "")
-	flag.StringVar(&from, "f", "", "")
-	flag.StringVar(&to, "to", "", "")
-	flag.StringVar(&to, "t", "", "")
+	var (
+		confName    string
+		interactive bool
+		repeat      string
+	)
 
 	flag.Usage = func() { fmt.Print(usage) }
+	flag.StringVar(&confName, "config", "", "")
+	flag.StringVar(&confName, "c", "", "")
+	flag.BoolVar(&interactive, "interactive", false, "")
+	flag.BoolVar(&interactive, "i", false, "")
+	flag.StringVar(&repeat, "repeat", "", "")
+	flag.StringVar(&repeat, "r", "", "")
 	flag.Parse()
 
 	log.Printf("scaleconnect version %s\n", Version)
 
-	type Config struct {
-		From string `yaml:"from"`
-		To   string `yaml:"to"`
+	data, err := readConfig(confName)
 
-		Expr map[string]string `yaml:"expr"`
-	}
-
-	var conf map[string]Config
-
-	// if from and to not empty - no need to read config file
-	if from != "" && to != "" {
-		sync = "sync_cli"
-		conf = map[string]Config{sync: {From: from, To: to}}
-	} else {
-		f, err := openConfig(confName)
+	// run config once
+	if !interactive && repeat == "" {
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer f.Close()
 
-		if err = yaml.NewDecoder(f).Decode(&conf); err != nil {
+		if err = process(data); err != nil {
 			log.Fatal(err)
+		}
+
+		os.Exit(0)
+	}
+
+	configs := make(chan []byte, 10)
+
+	if data != nil {
+		configs <- data
+
+		if repeat != "" {
+			var sleep time.Duration
+			if sleep, err = time.ParseDuration(repeat); err != nil {
+				log.Fatal(err)
+			}
+
+			go func() {
+				for range time.NewTicker(sleep).C {
+					configs <- data
+				}
+			}()
 		}
 	}
 
-	for name, v := range conf {
-		if sync != "" && name != sync {
-			continue
-		}
-		if from != "" {
-			v.From = from
-		}
-		if to != "" {
-			v.To = to
-		}
+	if interactive {
+		go func() {
+			// read stdin and process it forever
+			reader := bufio.NewReader(os.Stdin)
+			for {
+				data, err := reader.ReadBytes('\n')
+				if err != nil {
+					break
+				}
+				configs <- data
+			}
+		}()
+	}
 
+	go func() {
+		for data = range configs {
+			if err = process(data); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	fmt.Printf("exit with signal: %s\n", <-sigs)
+}
+
+func readStdin() []byte {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return nil
+	}
+
+	if fi.Size() == 0 {
+		return nil
+	}
+
+	data, _ := io.ReadAll(os.Stdin)
+	return data
+}
+
+const configName = "scaleconnect.yaml"
+
+func readConfig(name string) ([]byte, error) {
+	if name != "" {
+		return os.ReadFile(name)
+	}
+
+	// check config file in CWD
+	if f, err := os.ReadFile(configName); err == nil {
+		return f, nil
+	}
+
+	ex, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+
+	// set CWD to app dir
+	if err = os.Chdir(filepath.Dir(ex)); err != nil {
+		return nil, err
+	}
+
+	// check config file again
+	return os.ReadFile(configName)
+}
+
+func process(data []byte) error {
+	var syncs map[string]struct {
+		From any               `yaml:"from"`
+		To   string            `yaml:"to"`
+		Expr map[string]string `yaml:"expr"`
+	}
+	if err := yaml.Unmarshal(data, &syncs); err != nil {
+		return err
+	}
+
+	for name, v := range syncs {
 		if v.From == "" || v.To == "" {
 			continue
 		}
@@ -98,30 +187,6 @@ func main() {
 
 		log.Printf("%s: OK\n", name)
 	}
-}
 
-const configName = "scaleconnect.yaml"
-
-func openConfig(name string) (*os.File, error) {
-	if name != "" {
-		return os.Open(name)
-	}
-
-	// check config file in CWD
-	if f, err := os.Open(configName); err == nil {
-		return f, nil
-	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
-
-	// set CWD to app dir
-	if err = os.Chdir(filepath.Dir(ex)); err != nil {
-		return nil, err
-	}
-
-	// check config file again
-	return os.Open(configName)
+	return nil
 }
