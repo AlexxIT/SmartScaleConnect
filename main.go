@@ -130,6 +130,9 @@ const configName = "scaleconnect.yaml"
 
 func readConfig(name string) ([]byte, error) {
 	if name != "" {
+		if name[0] == '{' {
+			return []byte(name), nil
+		}
 		return os.ReadFile(name)
 	}
 
