@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -26,14 +25,6 @@ const usage = `Usage of scaleconnect:
 `
 
 func main() {
-	// read stdin, process and exit
-	if data := readStdin(); data != nil {
-		if err := process(data); err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-
 	var (
 		config      string
 		repeat      string
@@ -110,20 +101,6 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	fmt.Printf("exit with signal: %s\n", <-sigs)
-}
-
-func readStdin() []byte {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return nil
-	}
-
-	if fi.Size() == 0 {
-		return nil
-	}
-
-	data, _ := io.ReadAll(os.Stdin)
-	return data
 }
 
 const configName = "scaleconnect.yaml"
