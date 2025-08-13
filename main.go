@@ -130,17 +130,21 @@ const configName = "scaleconnect.yaml"
 
 func readConfig(name string) ([]byte, error) {
 	if name != "" {
+		// 1. Check if JSON passed as config
 		if name[0] == '{' {
 			return []byte(name), nil
 		}
+
+		// 2. Check config from passed path
 		return os.ReadFile(name)
 	}
 
-	// check config file in CWD
+	// 3. Check config file in CWD
 	if data, err := os.ReadFile(configName); err == nil {
 		return data, nil
 	}
 
+	// 4. Check config near binary
 	ex, err := os.Executable()
 	if err != nil {
 		return nil, err
