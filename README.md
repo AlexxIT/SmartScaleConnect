@@ -1,16 +1,17 @@
 ![](assets/scaleconnect.png)
 
-**SmartScaleConnect** - application for synchronizing smart scale data between different ecosystems.
+Application for synchronizing smart scale data between different ecosystems.
 
 **Features:**
 
-- Load data from [Garmin], [Mi Fitness], [My TANITA], [Picooc], [Zepp Life], [CSV], [JSON]
-- Save data to [Garmin], [Home Assistant], [CSV], [JSON]
-- Support params: `Weight`, `BMI`, `Body Fat`, `Body Water`, `Bone Mass`, `Metabolic Age`, `Muscle Mass`, `Physique Rating`, `Visceral Fat`, `Basal Metabolism`, `Heart Rate`, `Skeletal Muscle Mass`
+- Load data from [Garmin], [Home Assistant], [Mi Fitness], [My TANITA], [Picooc], [Zepp Life], [CSV], [JSON]
+- Save data to [Garmin], [Home Assistant], [Zepp Life], [CSV], [JSON]
+- Support params: `Weight`, `BMI`, `Body Fat`, `Body Water`, `Bone Mass`, `Metabolic Age`, `Muscle Mass`, `Physique Rating`, `ProteinMass`, `Visceral Fat`, `Basal Metabolism`, `Heart Rate`, `Skeletal Muscle Mass`
 - Support multiple users data
 - Support scripting language 
 
 [Garmin]: https://connect.garmin.com/
+[Garmin Connect]: https://connect.garmin.com/
 [Home Assistant]: https://www.home-assistant.io/
 [Mi Fitness]: https://play.google.com/store/apps/details?id=com.xiaomi.wearable
 [My TANITA]: https://mytanita.eu/
@@ -28,15 +29,20 @@
 <!-- TOC -->
   * [Fast start](#fast-start)
   * [Configuration](#configuration)
-    * [Garmin](#garmin)
-    * [Xiaomi Mi Fitness](#xiaomi-mi-fitness)
-    * [Zepp Life](#zepp-life)
-    * [My TANINA](#my-tanina)
-    * [Picooc](#picooc)
-    * [Fitbit](#fitbit)
-    * [CSV](#csv)
-    * [JSON](#json)
-    * [Home Assistant](#home-assistant)
+    * [To: Garmin](#to-garmin)
+    * [From: Garmin](#from-garmin)
+    * [From: Xiaomi Mi Fitness](#from-xiaomi-mi-fitness)
+    * [From: Zepp Life](#from-zepp-life)
+    * [To: Zepp Life](#to-zepp-life)
+    * [From: My TANINA](#from-my-tanina)
+    * [From: Picooc](#from-picooc)
+    * [From: Fitbit](#from-fitbit)
+    * [From/to: CSV](#fromto-csv)
+    * [From/to: JSON](#fromto-json)
+    * [From: YAML](#from-yaml)
+    * [From: Home Assistant](#from-home-assistant)
+    * [To: Home Assistant](#to-home-assistant)
+  * [Command line (CLI)](#command-line-cli)
   * [Sync logic](#sync-logic)
   * [Scripting language](#scripting-language)
   * [Known Scales](#known-scales)
@@ -78,7 +84,7 @@ sync_alex_xiaomi:
     BodyFat: 'Date >= date("2025-04-01") && Source == "blt.3.1abcdefabcd00" ? 0 : BodyFat'
 ```
 
-### Garmin
+### To: Garmin
 
 ![](assets/garmin.png)
 
@@ -87,15 +93,7 @@ sync_alex_xiaomi:
 - Currently, two-factor authentication is not supported.
 - Currently, China server is not supported.
 
-You can use [Garmin] data as source:
-
-```yaml
-sync_garmin:
-  from: garmin {username} {password}
-  to: csv alex_garmin.csv
-```
-
-And as destination:
+**Example.** Upload data go [Garmin Connect] from [CSV]:
 
 ```yaml
 sync_garmin:
@@ -105,14 +103,24 @@ sync_garmin:
 
 If you want to upload custom manual data to Garmin, just import it from CSV file.
 
-### Xiaomi Mi Fitness
+### From: Garmin
+
+**Example.** Download data from [Garmin Connect] to [CSV]:
+
+```yaml
+sync_garmin:
+  from: garmin {username} {password}
+  to: csv alex_garmin.csv
+```
+
+### From: Xiaomi Mi Fitness
 
 Tested on scales:
 
 - Mi Body Composition Scale S400 (MJTZC01YM) - getting other users data is supported.
 - Xiaomi 8-Electrode Body Composition Scale (XMTZC01YM) - getting other users data is not supported yet.
 
-Get data from all scales of the main user:
+**Example.** Get data from all scales of the main user:
 
 ```yaml
 sync_xiaomi:
@@ -120,7 +128,7 @@ sync_xiaomi:
   to: csv alex_xiaomi.csv
 ```
 
-Get the data of all users from specific scales:
+**Example.** Get the data of all users from specific scales:
 
 ```yaml
 sync_xiaomi:
@@ -131,7 +139,7 @@ sync_xiaomi:
 - You can check scales model name from Mi Fitness app > Device > Scale > About device > Device model.
 - You can add a filter by username.
 
-Example:
+**Example:**
 
 ```yaml
 sync_yulia_xiaomi:
@@ -141,7 +149,7 @@ sync_yulia_xiaomi:
     Weight: 'User == "Yulia" ? Weight : 0'
 ```
 
-### Zepp Life
+### From: Zepp Life
 
 **Limitations:**
 
@@ -152,7 +160,7 @@ Tested on scales:
 
 - Mi Body Composition Scale 2 (XMTZC05HM)
 
-Get data from all scales of the main user:
+**Example.** Get data from all scales of the main user:
 
 ```yaml
 sync_zepp:
@@ -160,7 +168,7 @@ sync_zepp:
   to: csv alex_zepp.csv
 ```
 
-Getting data from all scales of the selected user:
+**Example.** Getting data from all scales of the selected user:
 
 ```yaml
 sync_zepp:
@@ -168,7 +176,25 @@ sync_zepp:
   to: csv alex_zepp.csv
 ```
 
-### My TANINA
+### To: Zepp Life
+
+You can upload data to [Zepp Life].
+
+**Important.** Your data must have `Weight`, `BodyFat`, `BodyScore` and `Height`, so it will be displayed in advanced view. Otherwise, it will only be displayed as `Weight` data.
+
+**Example.** Send data to Zepp Life from config file:
+
+```yaml
+sync_zepp:
+  from:
+    Weight: 64.30
+    BodyFat: 10.0
+    BodyScore: 85
+    Height: 172
+  to: zepp/xiaomi {username} {password}
+```
+
+### From: My TANINA
 
 On Tanita servers, the weighing time is stored with an unknown time zone and may be incorrect.
 
@@ -178,9 +204,9 @@ sync_tanita:
   to: csv alex_tanita.csv
 ```
 
-### Picooc
+### From: Picooc
 
-Get data from all scales of the main user:
+**Example.** Get data from all scales of the main user:
 
 ```yaml
 sync_picooc:
@@ -188,7 +214,7 @@ sync_picooc:
   to: csv alex_picooc.csv
 ```
 
-Getting data from all scales of the selected user:
+**Example.** Getting data from all scales of the selected user:
 
 ```yaml
 sync_picooc:
@@ -196,13 +222,13 @@ sync_picooc:
   to: csv alex_picooc.csv
 ```
 
-### Fitbit
+### From: Fitbit
 
 My Fitbit Aria scales are no longer working. Therefore, I am interested in this service only from the point of view of archived data.
 
 Google bought this service and sent an email with the subject "Take action by February 2, 2026 to keep using Fitbit". There they offer to [download all the data](https://www.fitbit.com/settings/data/export), otherwise it will disappear.
 
-Supports retrieving data from the archive:
+**Example.** Retrieving data from the archive:
 
 ```yaml
 sync_fitbit:
@@ -210,27 +236,97 @@ sync_fitbit:
   to: csv alex_fitbit.csv
 ```
 
-### CSV
+### From/to: CSV
 
 ![](assets/excel.png)
 
 A good format for human-readable text. The time inside the file is always your local time. Well-supported in MS Office. It is convenient to build quick analytics there.
 
-You can use [CSV] file or HTTP-link as source and CSV file or HTTP-link as destination:
+You can use [CSV] **file** or **HTTP-link** as source and CSV **file**, **HTTP-link** or **stdout** as destination:
 
 ```yaml
-sync_csv:
+sync_from_file:
+  from: csv source.csv
+
+sync_from_http:
   from: csv http://192.168.1.123/source.csv
+  
+sync_to_file:
   to: csv destination.csv
+
+sync_to_http:
+  to: csv http://192.168.1.123:8123/api/webhook/594b7e73-1f0f-4c3c-aded-eeaee78a6790
+
+sync_to_stdout:
+  to: csv stdout
 ```
 
-### JSON
+From link will be downloaded with GET request. To link will be uploaded with POST request.
 
-Same as [CSV], but [JSON].
+### From/to: JSON
 
-### Home Assistant
+Same as [CSV], but [JSON] file or HTTP-link as source and CSV file or HTTP-link as destination.
 
-Each time app starts, the most recent weighing will be uploaded to the Home Assistant.
+### From: YAML
+
+You can pass weighting data to config in raw YAML form. This is useful when integrating with other software, such as Home Assistant.
+
+```yaml
+sync_one_yaml:
+  from:
+    Weight: 65.0
+    BMI: 21.0
+    BodyFat: 10.0
+  to: garmin {username} {password}
+
+sync_many_yaml:
+  from:
+    - Data: '2025-08-01T09:00:00Z'
+      Weight: 65.0
+    - Data: '2025-08-02T09:00:00Z'
+      Weight: 66.0
+  to: zepp/xiaomi {username} {password}
+```
+
+### From: Home Assistant
+
+**Home Assistant Add-on**
+
+You can call `hassio.addon_stdin` service and pass **scaleconnect** config as `input`. Remember that the names of the synchronization instructions are located at the top level of the configuration. There may be one or more such instructions.
+
+```yaml
+action: hassio.addon_stdin
+data:
+  addon: a889bffc_scaleconnect  # addon ID
+  input:
+    sync_garmin:  # sync name (use any)
+      from:
+        Weight: '{{ states("sensor.mi_body_composition_scale_mass")|float }}'  # you can use templates
+        BMI: 21.0
+        BodyFat: 10.0
+      to: garmin {username} {password}
+```
+
+**Docker or venv**
+
+You need to download the binary file for your OS yourself, put it in the `/config` folder and give it the launch rights (`chmod +x scaleconnect`). Then write automation:
+
+```yaml
+shell_command:
+  scale_sync: >-
+    /config/scaleconnect -c '{{ {
+      "sync_garmin": {
+        "from": {
+          "Weight": states("sensor.mi_body_composition_scale_mass")|float,
+        },
+        "to": "garmin {username} {password}"
+      }
+    }|tojson }}'
+```
+
+### To: Home Assistant
+
+Each sync, the most recent weighing will be uploaded to the Home Assistant.
 
 Modify the example as you like. Add the other parameters of your scales. The data will be saved during HA reboots. Graphs will remember the history of changes.
 
@@ -253,12 +349,12 @@ input_number:
 Add automation:
 
 ```yaml
-alias: Weigth Data
+alias: Weight Data
 triggers:
   - trigger: webhook
     allowed_methods: [ POST ]
     local_only: true
-    webhook_id: "594b7e73-1f0f-4c3c-aded-eeaee78a6790"
+    webhook_id: "594b7e73-1f0f-4c3c-aded-eeaee78a6790"  # change to random
 conditions: []
 actions:
   - action: persistent_notification.create
@@ -285,6 +381,22 @@ sync_hass:
   to: json/latest http://192.168.1.123:8123/api/webhook/594b7e73-1f0f-4c3c-aded-eeaee78a6790
 ```
 
+## Command line (CLI)
+
+**Options:**
+
+- `-c {path to config file}` or `-c {raw config in YAML/JSON format}` - Config file path or content.
+- `-r {duration}` - Repeat config file processing after timeout (format: `2h0m0s`).
+- `-i` - "interactive mode" for receiving config file content in YAML/JSON format via `stdin` (single line with `\n` at the end).
+
+**Example.** Send config content from command line and receive response to `stdout`:
+
+```shell
+./scaleconnect -c '{"sync1":{"from":"garmin alex@gmail.com garmin-password","to":"json stdout"}}'
+```
+
+By running the app in "interactive mode", you can send commands to it via `stdin` and receive responses in `stdout`.
+
 ## Sync logic
 
 Every time you start the app, the weight data is fully synchronized:
@@ -309,21 +421,24 @@ You can change the synchronization behavior and change the weighting values usin
 ```yaml
 sync_expr:
   expr:
-    Date: 'Date - duration("1h")'  # you can adjust the weighing time
-    Weight: 'Weight > 60 ? 0 : Weight'  # you can use conditions
-    BMI: 'BMI * 0.95'  # mathematical formulas can be used
-    BodyFat: 'BodyFat - 5.0'  # mathematical formulas can be used
-    BodyWater: 'BodyWater'
-    BoneMass: 'BoneMass'
-    MuscleMass: 'MuscleMass'
-    SkeletalMuscleMass: 'SkeletalMuscleMass'
-    MetabolicAge: 'MetabolicAge'
-    PhysiqueRating: 'PhysiqueRating'
-    VisceralFat: 'VisceralFat'
-    BasalMetabolism: 'BasalMetabolism'
-    HeartRate: 'HeartRate'
-    User: 'User'
-    Source: 'Source + " some other text"'  # adding custom text information
+    Date: 'Date - duration("1h")'             # string RFC 3339, you can adjust the weighing time
+    Weight: 'Weight > 60 ? 0 : Weight'        # float kg, you can use conditions
+    BMI: 'BMI * 0.95'                         # float index, mathematical formulas can be used
+    BodyFat: 'BodyFat - 5.0'                  # float percent, mathematical formulas can be used
+    BodyWater: 'BodyWater'                    # float percent
+    BoneMass: 'BoneMass'                      # float kg
+    MetabolicAge: 'MetabolicAge'              # int years
+    MuscleMass: 'MuscleMass'                  # float kg
+    PhysiqueRating: 'PhysiqueRating'          # int index, from 1 to 9
+    ProteinMass: 'ProteinMass'                # float kg
+    VisceralFat: 'VisceralFat'                # int index, from 1 to 59
+    BasalMetabolism: 'BasalMetabolism'        # int kcal
+    BodyScore: 'BodyScore'                    # int index, from 1 to 100
+    HeartRate: 'HeartRate'                    # int bpm
+    Height: 'Height'                          # float cm
+    SkeletalMuscleMass: 'SkeletalMuscleMass'  # float kg
+    User: 'User'                              # string
+    Source: 'Source + " some other text"'     # string, adding custom text information
 ```
 
 For example, many scales measure the `MuscleMass` parameter. Although professional scales, including Garmin, measure `SkeletalMuscleMass`. If you want the `MuscleMass` parameter to be displayed in Garmin instead of `SkeletalMuscleMass`, do this:
