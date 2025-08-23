@@ -120,12 +120,26 @@ Tested on scales:
 - Mi Body Composition Scale S400 (MJTZC01YM) - getting other users data is supported.
 - Xiaomi 8-Electrode Body Composition Scale (XMTZC01YM) - getting other users data is not supported yet.
 
-**Example.** Get data from all scales of the main user:
+**Example.** Get data from all scales of the main user (China region):
 
 ```yaml
 sync_xiaomi:
   from: xiaomi {username} {password}
   to: csv alex_xiaomi.csv
+```
+
+**Example.** Get data from all scales of the main user (other region):
+
+- `de` (Europe)
+- `i2` (India)
+- `ru` (Russia)
+- `sg` (Singapore)
+- `us` (United States)
+
+```yaml
+sync_xiaomi:
+  from: xiaomi {username} {password} {region}
+  to: csv alex_xiaomi_region.csv
 ```
 
 **Example.** Get the data of all users from specific scales:
