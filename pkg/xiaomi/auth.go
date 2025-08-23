@@ -233,18 +233,7 @@ func (c *Client) oauth2Authorize(params string) (*loginResponse1, error) {
 	return &res1, nil
 }
 
-func (c *Client) Request(apiURL, params string) (data []byte, err error) {
-	for range 2 {
-		if data, err = c.request(apiURL, params); err != nil {
-			time.Sleep(time.Second)
-			continue
-		}
-		return
-	}
-	return c.request(apiURL, params)
-}
-
-func (c *Client) request(apiURL, params string) ([]byte, error) {
+func (c *Client) Request(baseURL, apiURL, params string) ([]byte, error) {
 	form := url.Values{"data": {params}}
 
 	nonce := GenNonce()
@@ -268,7 +257,7 @@ func (c *Client) request(apiURL, params string) ([]byte, error) {
 	// 4. add nonce
 	form.Set("_nonce", base64.StdEncoding.EncodeToString(nonce))
 
-	req, err := http.NewRequest("POST", apiURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", baseURL+apiURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +360,7 @@ func readLoginResponse(res *http.Response) ([]byte, error) {
 }
 
 func GenNonce() []byte {
-	ts := time.Now().UnixMilli() / 60000
+	ts := time.Now().Unix() / 60
 
 	nonce := make([]byte, 12)
 	_, _ = rand.Read(nonce[:8])
@@ -392,7 +381,8 @@ func Crypt(key, plaintext []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	cipher.XORKeyStream(make([]byte, 1024), make([]byte, 1024))
+	tmp := make([]byte, 1024)
+	cipher.XORKeyStream(tmp, tmp)
 
 	ciphertext := make([]byte, len(plaintext))
 	cipher.XORKeyStream(ciphertext, plaintext)
@@ -400,22 +390,10 @@ func Crypt(key, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-var prefixes = [4]string{
-	"https://hlth.io.mi.com/healthapp", "https://hlth.io.mi.com",
-	"https://api.io.mi.com/healthapp", "https://api.io.mi.com/app",
-}
-
-func GenSignature64(method, url string, values url.Values, signedNonce []byte) string {
-	for _, s := range prefixes {
-		if strings.HasPrefix(url, s) {
-			url = url[len(s):]
-			break
-		}
-	}
-
-	s := method + "&" + url
-	for k, v := range values {
-		s += "&" + k + "=" + v[0]
+func GenSignature64(method, path string, values url.Values, signedNonce []byte) string {
+	s := method + "&" + path + "&data=" + values.Get("data")
+	if values.Has("rc4_hash__") {
+		s += "&rc4_hash__=" + values.Get("rc4_hash__")
 	}
 	s += "&" + base64.StdEncoding.EncodeToString(signedNonce)
 

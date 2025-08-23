@@ -28,13 +28,18 @@ func NewClient(app string) *Client {
 }
 
 func (c *Client) GetAllWeights() ([]*core.Weight, error) {
+	return c.getAllWeights("")
+}
+
+func (c *Client) getAllWeights(region string) ([]*core.Weight, error) {
 	var weights []*core.Weight
 
 	ts := time.Now().Add(24 * time.Hour).Unix()
-	params := fmt.Sprintf(`{"start_time":1,"end_time":%d}`, ts)
+	params := fmt.Sprintf(`{"start_time":1,"end_time":%d,"key":"weight"}`, ts)
 
 	for {
-		data, err := c.Request("https://hlth.io.mi.com/app/v1/data/get_fitness_data_by_time", params)
+		// this request depends on user region
+		data, err := c.Request(baseURL(region), "/app/v1/data/get_fitness_data_by_time", params)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +161,7 @@ func (c *Client) GetAllWeights() ([]*core.Weight, error) {
 			break
 		}
 
-		params = fmt.Sprintf(`{"start_time":1,"end_time":%d,"next_key":%q}`, ts, res1.NextKey)
+		params = fmt.Sprintf(`{"start_time":1,"end_time":%d,"key":"weight","next_key":%q}`, ts, res1.NextKey)
 	}
 
 	return weights, nil
@@ -164,7 +169,7 @@ func (c *Client) GetAllWeights() ([]*core.Weight, error) {
 
 func (c *Client) GetFamilyMembers() (map[int64]string, error) {
 	params := `{"eco_api":"eco/scale/account/list"}`
-	data, err := c.Request("https://hlth.io.mi.com/app/v1/eco/api_proxy", params)
+	data, err := c.Request(baseURL(""), "/app/v1/eco/api_proxy", params)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +209,13 @@ func (c *Client) GetFamilyMembers() (map[int64]string, error) {
 	return accounts, nil
 }
 
-func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
+// GetFilterWeights filter can be region or scale model
+func (c *Client) GetFilterWeights(filter string) ([]*core.Weight, error) {
+	// check if the filter is a region
+	if s := baseURL(filter); s != "" {
+		return c.getAllWeights(filter)
+	}
+
 	var weights []*core.Weight
 
 	ts := time.Now().UnixMilli()
@@ -213,10 +224,11 @@ func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
 		// model is important, did may be zero
 		params := fmt.Sprintf(
 			`{"param":{"endTime":1,"beginTime":%d},"model":"%s","did":0,"uid":%d}`,
-			ts, model, c.userID,
+			ts, filter, c.userID,
 		)
 		params = fmt.Sprintf(`{"eco_api":"eco/scale/getData","params":%q}`, params)
-		data, err := c.Request("https://hlth.io.mi.com/app/v1/eco/api_proxy", params)
+		// this request works only for main (CN) region
+		data, err := c.Request(baseURL(""), "/app/v1/eco/api_proxy", params)
 		if err != nil {
 			return nil, err
 		}
@@ -427,6 +439,16 @@ func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
 	}
 
 	return weights, nil
+}
+
+func baseURL(region string) string {
+	switch region {
+	case "", "cn":
+		return "https://hlth.io.mi.com"
+	case "de", "i2", "ru", "sg", "us":
+		return "https://" + region + ".hlth.io.mi.com"
+	}
+	return ""
 }
 
 func unmarshalProxyResp(data []byte, v any) error {
