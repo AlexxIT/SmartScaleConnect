@@ -245,41 +245,44 @@ func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
 			switch v1.FromSource {
 			case 1:
 				var v2 struct {
-					//UserID    string  `json:"miid"`
-					//Duid      int     `json:"duid"`
-					//UserType  int     `json:"userType"`
-					Weight    float32 `json:"weight"`
-					HeartRate int     `json:"heartRate"`
-					//Status     int     `json:"status"`
-					Time int64 `json:"time"`
-					//Bfp        int     `json:"bfp"`
-					//Slm        int     `json:"slm"`
-					//Bwp        int     `json:"bwp"`
-					//Bmc        int     `json:"bmc"`
-					//Vfl        int     `json:"vfl"`
-					//Pp         int     `json:"pp"`
-					//Smm        int     `json:"smm"`
-					//Bmi        int     `json:"bmi"`
-					//Swt        int     `json:"swt"`
-					//Mc         int     `json:"mc"`
-					//Wc         int     `json:"wc"`
-					//Fc         int     `json:"fc"`
-					//Whr        int     `json:"whr"`
-					//Bmr        int     `json:"bmr"`
-					//Bt         int     `json:"bt"`
-					//Ma         int     `json:"ma"`
-					//Sbc        int     `json:"sbc"`
-					//Slp        int     `json:"slp"`
-					//Bmcp       int     `json:"bmcp"`
-					//Bfm        int     `json:"bfm"`
-					//Ffm        int     `json:"ffm"`
-					//Bwm        int     `json:"bwm"`
-					//Pm         int     `json:"pm"`
-					//BodyRes    int     `json:"bodyRes"`
-					//BodyRes2   int     `json:"bodyRes2"`
-					//Idx        int     `json:"idx"`
-					ReportFrom string `json:"reportFrom"`
-					User       struct {
+					Weight    float32 `json:"weight"` // 87.8 kg
+					BMI       float32 `json:"bmi"`    // 25.7 points
+					BodyFat   float32 `json:"bfp"`    // 22.9 %
+					BodyWater float32 `json:"bwp"`    // 58.8 $
+					BoneMass  float32 `json:"bmc"`    // 3.7 kg
+
+					MetabolicAge int     `json:"ma"`  // 55 years
+					MuscleMass   float32 `json:"slm"` // 63.9 kg
+					BodyType     int     `json:"bt"`  // 4
+					ProteinMass  float32 `json:"pm"`  // 11.6 kg
+					VisceralFat  int     `json:"vfl"` // 9 points
+
+					BMR                int     `json:"bmr"`        // 1832 kcal
+					BodyScore          int     `json:"sbc"`        // 80 points
+					HeartRate          int     `json:"heartRate"`  // 73 bpm
+					SkeletalMuscleMass float32 `json:"smm"`        // 37.6 kg
+					ReportFrom         string  `json:"reportFrom"` // Regular
+
+					//UserID             int     `json:"miid"`       // 1234567890
+					//Duid               int     `json:"duid"`       // 6 ?
+					//UserType           int     `json:"userType"`   // 1 ?
+					//Status             int     `json:"status"`     // 0 ?
+					//Time               int64   `json:"time"`       // 1755927448
+					//ProteinPercent     float32 `json:"pp"`         // 13.2 %
+					//IdealWeight        float32 `json:"swt"`        // 73.5 kg
+					//MuscleCorrection   float32 `json:"mc"`         // -5.2
+					//WeightCorrection   float32 `json:"wc"`         // -14.3
+					//FatCorrection      float32 `json:"fc"`         // -9.1
+					//WHR                float32 `json:"whr"`        // 1.3
+					//MusclePercent      float32 `json:"slp"`        // 72.9 %
+					//BoneMassPercentage float32 `json:"bmcp"`       // 4.2 %
+					//FatMass            float32 `json:"bfm"`        // 20.1 kg
+					//LeanBodyMass       float32 `json:"ffm"`        // 67.6 kg
+					//BodyWaterMass      float32 `json:"bwm"`        // 51.5 kg
+					//BodyRes            float32 `json:"bodyRes"`    // 384.1
+					//BodyRes2           float32 `json:"bodyRes2"`   // 357.5
+					//Idx                int     `json:"idx"`        // -1
+					User struct {
 						//Uid              string `json:"uid"`
 						//Sex              string `json:"sex"`
 						//Birth            int64  `json:"birth"`
@@ -304,9 +307,25 @@ func (c *Client) GetFilterWeights(model string) ([]*core.Weight, error) {
 				w := &core.Weight{
 					Date:      time.UnixMilli(v1.CreateTime),
 					Weight:    v2.Weight,
-					HeartRate: v2.HeartRate,
-					User:      v2.User.Name,
-					Source:    v2.ReportFrom,
+					BMI:       v2.BMI,
+					BodyFat:   v2.BodyFat,
+					BodyWater: v2.BodyWater,
+					BoneMass:  v2.BoneMass,
+
+					MetabolicAge:   v2.MetabolicAge,
+					MuscleMass:     v2.MuscleMass,
+					PhysiqueRating: v2.BodyType,
+					ProteinMass:    v2.ProteinMass,
+					VisceralFat:    v2.VisceralFat,
+
+					BasalMetabolism:    v2.BMR,
+					BodyScore:          v2.BodyScore,
+					HeartRate:          v2.HeartRate,
+					Height:             0,
+					SkeletalMuscleMass: v2.SkeletalMuscleMass,
+
+					User:   v2.User.Name,
+					Source: v2.ReportFrom,
 				}
 				weights = append(weights, w)
 			case 3:
