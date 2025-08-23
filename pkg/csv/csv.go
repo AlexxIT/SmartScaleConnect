@@ -12,7 +12,7 @@ import (
 
 const Header = "Date,Weight," +
 	"BMI,BodyFat,BodyWater,BoneMass," +
-	"MetabolicAge,MuscleMass,PhysiqueRating,VisceralFat," +
+	"MetabolicAge,MuscleMass,PhysiqueRating,ProteinMass,VisceralFat," +
 	"BasalMetabolism,HeartRate,SkeletalMuscleMass," +
 	"User,Source\n"
 
