@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const Version = "0.3.1"
+const Version = "0.4.0"
 
 const usage = `Usage of scaleconnect:
 
