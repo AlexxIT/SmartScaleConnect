@@ -15,6 +15,7 @@ import (
 	"github.com/AlexxIT/SmartScaleConnect/pkg/core"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/csv"
 	"github.com/AlexxIT/SmartScaleConnect/pkg/fitbit"
+	"github.com/AlexxIT/SmartScaleConnect/pkg/xiaomi"
 )
 
 func GetWeights(from any) ([]*core.Weight, error) {
@@ -80,14 +81,14 @@ func getWeights(config string) ([]*core.Weight, error) {
 	case "fitbit":
 		return fitbit.Read(fields[1])
 
-	case "garmin", "tanita":
+	case AccGarmin, AccTanita:
 		acc, err := GetAccount(fields)
 		if err != nil {
 			return nil, err
 		}
 		return acc.GetAllWeights()
 
-	case "picooc", "xiaomi", "zepp/xiaomi":
+	case AccMiFitness, AccPicooc, AccXiaomi, AccZeppXiaomi:
 		acc, err := GetAccount(fields)
 		if err != nil {
 			return nil, err
@@ -99,6 +100,14 @@ func getWeights(config string) ([]*core.Weight, error) {
 
 		return acc.(core.AccountWithFilter).GetFilterWeights(fields[3])
 
+	case AccXiaomiHome:
+		acc, err := GetAccount(fields)
+		if err != nil {
+			return nil, err
+		}
+
+		return acc.(*xiaomi.Client).GetModelWeights(fields[3], fields[4])
+
 	default:
 		return nil, errors.New("unsupported type: " + fields[0])
 	}
@@ -109,7 +118,7 @@ func SetWeights(config string, src []*core.Weight) error {
 	case "csv", "json":
 		return writeFile(config, src)
 
-	case "garmin", "zepp/xiaomi":
+	case AccGarmin, AccZeppXiaomi:
 		return appendAccount(config, src)
 
 	case "json/latest":

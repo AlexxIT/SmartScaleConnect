@@ -11,6 +11,16 @@ import (
 	"github.com/AlexxIT/SmartScaleConnect/pkg/zepp"
 )
 
+const (
+	AccGarmin     = "garmin"
+	AccMiFitness  = "mifitness"
+	AccPicooc     = "picooc"
+	AccTanita     = "tanita"
+	AccXiaomi     = "xiaomi"
+	AccXiaomiHome = "xiaomihome"
+	AccZeppXiaomi = "zepp/xiaomi"
+)
+
 var accounts = map[string]core.Account{}
 
 func GetAccount(fields []string) (core.Account, error) {
@@ -33,15 +43,17 @@ func getAccount(fields []string, key string) (core.Account, error) {
 	var acc core.Account
 
 	switch fields[0] {
-	case "garmin":
+	case AccGarmin:
 		acc = garmin.NewClient()
-	case "picooc":
+	case AccPicooc:
 		acc = picooc.NewClient()
-	case "tanita":
+	case AccTanita:
 		acc = tanita.NewClient()
-	case "xiaomi":
+	case AccXiaomi, AccMiFitness:
 		acc = xiaomi.NewClient(xiaomi.AppMiFitness)
-	case "zepp/xiaomi":
+	case AccXiaomiHome:
+		acc = xiaomi.NewClient(xiaomi.AppXiaomiHome)
+	case AccZeppXiaomi:
 		acc = zepp.NewClient()
 	default:
 		return nil, errors.New("unsupported type: " + fields[0])

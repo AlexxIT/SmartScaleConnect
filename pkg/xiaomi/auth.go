@@ -233,7 +233,7 @@ func (c *Client) oauth2Authorize(params string) (*loginResponse1, error) {
 	return &res1, nil
 }
 
-func (c *Client) Request(baseURL, apiURL, params string) ([]byte, error) {
+func (c *Client) Request(baseURL, apiURL, params string, headers map[string]string) ([]byte, error) {
 	form := url.Values{"data": {params}}
 
 	nonce := GenNonce()
@@ -265,13 +265,17 @@ func (c *Client) Request(baseURL, apiURL, params string) ([]byte, error) {
 	req.Header.Set("Cookie", c.cookies)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
 	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode == http.StatusUnauthorized {
+	if res.StatusCode != http.StatusOK {
 		return nil, errors.New(res.Status)
 	}
 

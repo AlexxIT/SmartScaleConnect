@@ -2,6 +2,7 @@ package xiaomi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -39,7 +40,7 @@ func (c *Client) getAllWeights(region string) ([]*core.Weight, error) {
 
 	for {
 		// this request depends on user region
-		data, err := c.Request(baseURL(region), "/app/v1/data/get_fitness_data_by_time", params)
+		data, err := c.Request(MiFitnessURL(region), "/app/v1/data/get_fitness_data_by_time", params, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -167,281 +168,396 @@ func (c *Client) getAllWeights(region string) ([]*core.Weight, error) {
 	return weights, nil
 }
 
-func (c *Client) GetFamilyMembers() (map[int64]string, error) {
-	params := `{"eco_api":"eco/scale/account/list"}`
-	data, err := c.Request(baseURL(""), "/app/v1/eco/api_proxy", params)
-	if err != nil {
-		return nil, err
-	}
-
-	var res1 struct {
-		Code          int    `json:"code"`
-		Message       string `json:"message"`
-		DetailMessage string `json:"detailMessage"`
-		Result        []struct {
-			Uid              string `json:"uid"`
-			AccountId        string `json:"accountId"`
-			Name             string `json:"name"`
-			Icon             string `json:"icon"`
-			Type             int    `json:"type"`
-			Sex              string `json:"sex"`
-			Height           string `json:"height"`
-			WeightTarget     string `json:"weightTarget"`
-			Birth            string `json:"birth"`
-			CreationTime     int64  `json:"creationTime"`
-			AccountCode      int    `json:"accountCode"`
-			DeviceId         string `json:"deviceId"`
-			WeightUpdateTime int64  `json:"weightUpdateTime"`
-		} `json:"result"`
-	}
-
-	if err = unmarshalProxyResp(data, &res1); err != nil {
-		return nil, err
-	}
-
-	accounts := make(map[int64]string)
-
-	for _, v := range res1.Result {
-		i, _ := strconv.ParseInt(v.AccountId, 10, 64)
-		accounts[i] = v.Name
-	}
-
-	return accounts, nil
-}
+//func (c *Client) GetFamilyMembers() (map[int64]string, error) {
+//	params := `{"eco_api":"eco/scale/account/list"}`
+//	data, err := c.Request(MiFitnessURL(""), "/app/v1/eco/api_proxy", params, nil)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	if data, err = readProxyResponse(data); err != nil {
+//		return nil, err
+//	}
+//
+//	var items []struct {
+//		Uid              string `json:"uid"`
+//		AccountId        string `json:"accountId"`
+//		Name             string `json:"name"`
+//		Icon             string `json:"icon"`
+//		Type             int    `json:"type"`
+//		Sex              string `json:"sex"`
+//		Height           string `json:"height"`
+//		WeightTarget     string `json:"weightTarget"`
+//		Birth            string `json:"birth"`
+//		CreationTime     int64  `json:"creationTime"`
+//		AccountCode      int    `json:"accountCode"`
+//		DeviceId         string `json:"deviceId"`
+//		WeightUpdateTime int64  `json:"weightUpdateTime"`
+//	}
+//
+//	if err = json.Unmarshal(data, &items); err != nil {
+//		return nil, err
+//	}
+//
+//	accounts := make(map[int64]string, len(items))
+//
+//	for _, v := range items {
+//		i, _ := strconv.ParseInt(v.AccountId, 10, 64)
+//		accounts[i] = v.Name
+//	}
+//
+//	return accounts, nil
+//}
 
 // GetFilterWeights filter can be region or scale model
 func (c *Client) GetFilterWeights(filter string) ([]*core.Weight, error) {
 	// check if the filter is a region
-	if s := baseURL(filter); s != "" {
+	if s := MiFitnessURL(filter); s != "" {
 		return c.getAllWeights(filter)
 	}
 
 	var weights []*core.Weight
 
-	ts := time.Now().UnixMilli()
-
-	for {
+	for ts := time.Now().UnixMilli(); ts > 0; {
 		// model is important, did may be zero
 		params := fmt.Sprintf(
-			`{"param":{"endTime":1,"beginTime":%d},"model":"%s","did":0,"uid":%d}`,
+			`{"param":{"endTime":1,"beginTime":%d},"model":"%s","uid":%d,"did":0}`,
 			ts, filter, c.userID,
 		)
 		params = fmt.Sprintf(`{"eco_api":"eco/scale/getData","params":%q}`, params)
 		// this request works only for main (CN) region
-		data, err := c.Request(baseURL(""), "/app/v1/eco/api_proxy", params)
+		data, err := c.Request(MiFitnessURL(""), "/app/v1/eco/api_proxy", params, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		var res1 struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-			Result  []struct {
-				Model       string `json:"model"`
-				Uid         int64  `json:"uid"`
-				AccountId   int64  `json:"accountId"`
-				Did         string `json:"did"`
-				CreateTime  int64  `json:"createTime"`
-				Data        string `json:"data"`
-				DataVersion int    `json:"dataVersion"`
-				Sn          string `json:"sn"`
-				FromSource  int    `json:"fromSource"`
-			} `json:"result"`
-		}
-
-		if err = unmarshalProxyResp(data, &res1); err != nil {
+		if data, err = readProxyResponse(data); err != nil {
 			return nil, err
 		}
 
-		for _, v1 := range res1.Result {
-			switch v1.FromSource {
-			case 1:
-				var v2 struct {
-					Weight    float32 `json:"weight"` // 87.8 kg
-					BMI       float32 `json:"bmi"`    // 25.7 points
-					BodyFat   float32 `json:"bfp"`    // 22.9 %
-					BodyWater float32 `json:"bwp"`    // 58.8 $
-					BoneMass  float32 `json:"bmc"`    // 3.7 kg
-
-					MetabolicAge int     `json:"ma"`  // 55 years
-					MuscleMass   float32 `json:"slm"` // 63.9 kg
-					BodyType     int     `json:"bt"`  // 4
-					ProteinMass  float32 `json:"pm"`  // 11.6 kg
-					VisceralFat  int     `json:"vfl"` // 9 points
-
-					BMR                int     `json:"bmr"`        // 1832 kcal
-					BodyScore          int     `json:"sbc"`        // 80 points
-					HeartRate          int     `json:"heartRate"`  // 73 bpm
-					SkeletalMuscleMass float32 `json:"smm"`        // 37.6 kg
-					ReportFrom         string  `json:"reportFrom"` // Regular
-
-					//UserID             int     `json:"miid"`       // 1234567890
-					//Duid               int     `json:"duid"`       // 6 ?
-					//UserType           int     `json:"userType"`   // 1 ?
-					//Status             int     `json:"status"`     // 0 ?
-					//Time               int64   `json:"time"`       // 1755927448
-					//ProteinPercent     float32 `json:"pp"`         // 13.2 %
-					//IdealWeight        float32 `json:"swt"`        // 73.5 kg
-					//MuscleCorrection   float32 `json:"mc"`         // -5.2
-					//WeightCorrection   float32 `json:"wc"`         // -14.3
-					//FatCorrection      float32 `json:"fc"`         // -9.1
-					//WHR                float32 `json:"whr"`        // 1.3
-					//MusclePercent      float32 `json:"slp"`        // 72.9 %
-					//BoneMassPercentage float32 `json:"bmcp"`       // 4.2 %
-					//FatMass            float32 `json:"bfm"`        // 20.1 kg
-					//LeanBodyMass       float32 `json:"ffm"`        // 67.6 kg
-					//BodyWaterMass      float32 `json:"bwm"`        // 51.5 kg
-					//BodyRes            float32 `json:"bodyRes"`    // 384.1
-					//BodyRes2           float32 `json:"bodyRes2"`   // 357.5
-					//Idx                int     `json:"idx"`        // -1
-					User struct {
-						//Uid              string `json:"uid"`
-						//Sex              string `json:"sex"`
-						//Birth            int64  `json:"birth"`
-						//AccountId        string `json:"accountId"`
-						//Icon             string `json:"icon"`
-						//Height           string `json:"height"`
-						Name string `json:"name"`
-						//Type             int    `json:"type"`
-						//AccountCode      int    `json:"accountCode"`
-						//CreationTime     int64  `json:"creationTime"`
-						//WeightTarget     string `json:"weightTarget"`
-						//WeightUpdateTime int64  `json:"weightUpdateTime"`
-						//UpdateTime       int64  `json:"updateTime"`
-					} `json:"user"`
-				}
-
-				if err = json.Unmarshal([]byte(v1.Data), &v2); err != nil {
-					return nil, err
-				}
-
-				// v2.Time has bugs. For "UserEditor" it has seconds, for Claimed it has milliseconds
-				w := &core.Weight{
-					Date:      time.UnixMilli(v1.CreateTime),
-					Weight:    v2.Weight,
-					BMI:       v2.BMI,
-					BodyFat:   v2.BodyFat,
-					BodyWater: v2.BodyWater,
-					BoneMass:  v2.BoneMass,
-
-					MetabolicAge:   v2.MetabolicAge,
-					MuscleMass:     v2.MuscleMass,
-					PhysiqueRating: v2.BodyType,
-					ProteinMass:    v2.ProteinMass,
-					VisceralFat:    v2.VisceralFat,
-
-					BasalMetabolism:    v2.BMR,
-					BodyScore:          v2.BodyScore,
-					HeartRate:          v2.HeartRate,
-					Height:             0,
-					SkeletalMuscleMass: v2.SkeletalMuscleMass,
-
-					User:   v2.User.Name,
-					Source: v2.ReportFrom,
-				}
-				weights = append(weights, w)
-			case 3:
-				var v2 struct {
-					BMI         string `json:"bmi"`
-					BodyRes     string `json:"bodyRes"`
-					BodyRes2    string `json:"bodyRes2"`
-					BodyResData string `json:"bodyResData"`
-					HeartRate   int    `json:"heartRate"`
-					Mid         string `json:"mid"`
-					Time        string `json:"time"`
-					User        struct {
-						//AccountId        int64   `json:"accountId"`
-						//Birth            int64   `json:"birth"`
-						//CreateTime       int64   `json:"createTime"`
-						//Height           int     `json:"height"`
-						//Icon             string  `json:"icon"`
-						//Id               int     `json:"id"`
-						Name string `json:"name"`
-						//Sex              int     `json:"sex"`
-						//Type             int     `json:"type"`
-						//UserId           int64   `json:"userId"`
-						//WeightTarget     float32 `json:"weightTarget"`
-						//WeightUpdateTime int     `json:"weightUpdateTime"`
-					} `json:"user"`
-					Weight string `json:"weight"`
-				}
-
-				if err = json.Unmarshal([]byte(v1.Data), &v2); err != nil {
-					return nil, err
-				}
-
-				w := &core.Weight{
-					Date:      time.UnixMilli(parseInt64(v2.Time)),
-					Weight:    parseFloat(v2.Weight),
-					BMI:       parseFloat(v2.BMI),
-					HeartRate: v2.HeartRate,
-					User:      v2.User.Name,
-					Source:    v1.Did,
-				}
-
-				if v2.BodyResData != "" {
-					var v3 struct {
-						BodyFatRate        string `json:"bfp"`  // 12.1
-						MuscleMass         string `json:"slm"`  // 32.2
-						MoistureRate       string `json:"bwp"`  // 52.1
-						BoneMass           string `json:"bmc"`  // 1.6
-						VisceralFat        string `json:"vfl"`  // 5
-						ProteinRate        string `json:"pp"`   // 31
-						SkeletalMuscleMass string `json:"smm"`  // 15.39
-						BMI                string `json:"bmi"`  // 19.1
-						StandardWeightV2   string `json:"swt"`  // 46.2
-						MuscleControl      string `json:"mc"`   // 3.5
-						WeightControl      string `json:"wc"`   // 5.3
-						FatControl         string `json:"fc"`   // 2
-						WHR                string `json:"whr"`  // 1
-						Wl                 string `json:"wl"`   // 68.2
-						Hl                 string `json:"hl"`   // 70
-						BasalMetabolic     string `json:"bmr"`  // 1143
-						Bt                 string `json:"bt"`   // 1
-						BodyAge            string `json:"ma"`   // 14
-						BodyScore          string `json:"sbc"`  // 86
-						MuscleRate         string `json:"slp"`  // 84
-						BoneRate           string `json:"bmcp"` // 3.9
-						FatMass            string `json:"bfm"`  // 4.9
-						FatFreeBody        string `json:"ffm"`  // 35.8
-						BodyMoistureMass   string `json:"bwm"`  // 21.2
-						ProteinMass        string `json:"pm"`   // 12.6
-						Smi                string `json:"smi"`  // 7.2
-					}
-
-					if err = json.Unmarshal([]byte(v2.BodyResData), &v3); err != nil {
-						return nil, err
-					}
-
-					w.BodyFat = parseFloat(v3.BodyFatRate)
-					w.BodyWater = parseFloat(v3.MoistureRate)
-					w.BoneMass = parseFloat(v3.BoneMass)
-
-					w.MetabolicAge = parseInt(v3.BodyAge)
-					w.MuscleMass = parseFloat(v3.MuscleMass)
-					w.ProteinMass = parseFloat(v3.ProteinMass)
-					w.VisceralFat = parseInt(v3.VisceralFat)
-
-					w.BasalMetabolism = parseInt(v3.BasalMetabolic)
-					w.BodyScore = parseInt(v3.BodyScore)
-					w.SkeletalMuscleMass = parseFloat(v3.SkeletalMuscleMass)
-				}
-
-				weights = append(weights, w)
-			}
+		if ts, err = unmarshalScaleData(data, &weights); err != nil {
+			return nil, err
 		}
-
-		if len(res1.Result) < 20 {
-			break
-		}
-
-		ts = res1.Result[19].CreateTime
 	}
 
 	return weights, nil
 }
 
-func baseURL(region string) string {
+func (c *Client) GetModelWeights(region, model string) ([]*core.Weight, error) {
+	var weights []*core.Weight
+
+	switch region {
+	case "", "cn":
+		for ts := time.Now().UnixMilli(); ts > 0; {
+			// model is important, did may be zero
+			params := fmt.Sprintf(
+				`{"param":{"endTime":1,"beginTime":%d},"model":"%s","uid":%d,"did":0}`,
+				ts, model, c.userID,
+			)
+			// this request works only for main (CN) region
+			data, err := c.Request(
+				"https://api.io.mi.com/app", "/eco/scale/getData", params,
+				map[string]string{
+					"MIOT-REQUEST-MODEL": model,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if ts, err = unmarshalScaleData(data, &weights); err != nil {
+				return nil, err
+			}
+		}
+	case "de", "i2", "ru", "sg", "us":
+		for ts := time.Now().UnixMilli(); ts > 0; {
+			// model is important, did may be zero
+			params := fmt.Sprintf(
+				`{"endTime":1,"beginTime":%d,"model":"%s","uid":"%d","did":0,"accountId":0}`,
+				ts, model, c.userID,
+			)
+			// this request works only for main (CN) region
+			data, err := c.Request(
+				"https://"+region+".api.io.mi.com/app", "/eco/common/scale/getUserDataByPage", params,
+				map[string]string{
+					"MIOT-REQUEST-MODEL": model,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if ts, err = unmarshalScaleData(data, &weights); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, errors.New("xiaomi: unsupported region: " + region)
+	}
+
+	return weights, nil
+}
+
+func unmarshalScaleData(data []byte, weights *[]*core.Weight) (ts int64, err error) {
+	var items []struct {
+		Model       string `json:"model"`
+		Uid         int64  `json:"uid"`
+		AccountId   int64  `json:"accountId"`
+		Did         string `json:"did"`
+		CreateTime  int64  `json:"createTime"`
+		Data        string `json:"data"`
+		DataVersion int    `json:"dataVersion"`
+		Sn          string `json:"sn"`
+		FromSource  int    `json:"fromSource"`
+	}
+
+	if err = json.Unmarshal(data, &items); err != nil {
+		return
+	}
+
+	for _, v1 := range items {
+		switch v1.FromSource {
+		case 1:
+			var v2 struct {
+				Weight    float32 `json:"weight"` // 87.8 kg
+				BMI       float32 `json:"bmi"`    // 25.7 points
+				BodyFat   float32 `json:"bfp"`    // 22.9 %
+				BodyWater float32 `json:"bwp"`    // 58.8 %
+				BoneMass  float32 `json:"bmc"`    // 3.7 kg
+
+				MetabolicAge int     `json:"ma"`  // 55 years
+				MuscleMass   float32 `json:"slm"` // 63.9 kg
+				BodyType     int     `json:"bt"`  // 4
+				ProteinMass  float32 `json:"pm"`  // 11.6 kg
+				VisceralFat  int     `json:"vfl"` // 9 points
+
+				BMR                int     `json:"bmr"`        // 1832 kcal
+				BodyScore          int     `json:"sbc"`        // 80 points
+				HeartRate          int     `json:"heartRate"`  // 73 bpm
+				SkeletalMuscleMass float32 `json:"smm"`        // 37.6 kg
+				ReportFrom         string  `json:"reportFrom"` // Regular
+
+				//UserID             int     `json:"miid"`       // 1234567890
+				//Duid               int     `json:"duid"`       // 6 ?
+				//UserType           int     `json:"userType"`   // 1 ?
+				//Status             int     `json:"status"`     // 0 ?
+				//Time               int64   `json:"time"`       // 1755927448
+				//ProteinPercent     float32 `json:"pp"`         // 13.2 %
+				//IdealWeight        float32 `json:"swt"`        // 73.5 kg
+				//MuscleCorrection   float32 `json:"mc"`         // -5.2
+				//WeightCorrection   float32 `json:"wc"`         // -14.3
+				//FatCorrection      float32 `json:"fc"`         // -9.1
+				//WHR                float32 `json:"whr"`        // 1.3
+				//MusclePercent      float32 `json:"slp"`        // 72.9 %
+				//BoneMassPercentage float32 `json:"bmcp"`       // 4.2 %
+				//FatMass            float32 `json:"bfm"`        // 20.1 kg
+				//LeanBodyMass       float32 `json:"ffm"`        // 67.6 kg
+				//BodyWaterMass      float32 `json:"bwm"`        // 51.5 kg
+				//BodyRes            float32 `json:"bodyRes"`    // 384.1
+				//BodyRes2           float32 `json:"bodyRes2"`   // 357.5
+				//Idx                int     `json:"idx"`        // -1
+				User struct {
+					//Uid              string `json:"uid"`
+					//Sex              string `json:"sex"`
+					//Birth            int64  `json:"birth"`
+					//AccountId        string `json:"accountId"`
+					//Icon             string `json:"icon"`
+					Name   string `json:"name"`
+					Height any    `json:"height"`
+					//Type             int    `json:"type"`
+					//AccountCode      int    `json:"accountCode"`
+					//CreationTime     int64  `json:"creationTime"`
+					//WeightTarget     string `json:"weightTarget"`
+					//WeightUpdateTime int64  `json:"weightUpdateTime"`
+					//UpdateTime       int64  `json:"updateTime"`
+				} `json:"user"`
+			}
+
+			if err = json.Unmarshal([]byte(v1.Data), &v2); err != nil {
+				return
+			}
+
+			// v2.Time has bugs. For "UserEditor" it has seconds, for Claimed it has milliseconds
+			w := &core.Weight{
+				Date:      time.UnixMilli(v1.CreateTime),
+				Weight:    v2.Weight,
+				BMI:       v2.BMI,
+				BodyFat:   v2.BodyFat,
+				BodyWater: v2.BodyWater,
+				BoneMass:  v2.BoneMass,
+
+				MetabolicAge:   v2.MetabolicAge,
+				MuscleMass:     v2.MuscleMass,
+				PhysiqueRating: v2.BodyType,
+				ProteinMass:    v2.ProteinMass,
+				VisceralFat:    v2.VisceralFat,
+
+				BasalMetabolism:    v2.BMR,
+				BodyScore:          v2.BodyScore,
+				HeartRate:          v2.HeartRate,
+				Height:             parseAnyFloat(v2.User.Height),
+				SkeletalMuscleMass: v2.SkeletalMuscleMass,
+
+				User:   v2.User.Name,
+				Source: v2.ReportFrom,
+			}
+			*weights = append(*weights, w)
+
+		case 2:
+			var v2 struct {
+				Weight    any `json:"weight"`
+				BMI       any `json:"bmi"`
+				BodyFat   any `json:"bfp"`
+				BodyWater any `json:"bwp"`
+				BoneMass  any `json:"bmc"`
+
+				MetabolicAge any `json:"ma"`
+				MuscleMass   any `json:"slm"`
+				BodyType     any `json:"bt"`
+				ProteinMass  any `json:"pm"`
+				VisceralFat  any `json:"vfl"`
+
+				BMR                any `json:"bmr"`
+				BodyScore          any `json:"sbc"`
+				HeartRate          any `json:"heartRate"`
+				SkeletalMuscleMass any `json:"smm"`
+
+				User struct {
+					Name     string `json:"name"`
+					Height   any    `json:"height"`
+					DeviceID string `json:"deviceId"`
+				} `json:"user"`
+			}
+
+			if err = json.Unmarshal([]byte(v1.Data), &v2); err != nil {
+				return
+			}
+
+			// v2.Time has bugs. For "UserEditor" it has seconds, for Claimed it has milliseconds
+			w := &core.Weight{
+				Date:      time.UnixMilli(v1.CreateTime),
+				Weight:    parseAnyFloat(v2.Weight),
+				BMI:       parseAnyFloat(v2.BMI),
+				BodyFat:   parseAnyFloat(v2.BodyFat),
+				BodyWater: parseAnyFloat(v2.BodyWater),
+				BoneMass:  parseAnyFloat(v2.BoneMass),
+
+				MetabolicAge:   parseAnyInt(v2.MetabolicAge),
+				MuscleMass:     parseAnyFloat(v2.MuscleMass),
+				PhysiqueRating: parseAnyInt(v2.BodyType),
+				ProteinMass:    parseAnyFloat(v2.ProteinMass),
+				VisceralFat:    parseAnyInt(v2.VisceralFat),
+
+				BasalMetabolism:    parseAnyInt(v2.BMR),
+				BodyScore:          parseAnyInt(v2.BodyScore),
+				HeartRate:          parseAnyInt(v2.HeartRate),
+				Height:             parseAnyFloat(v2.User.Height),
+				SkeletalMuscleMass: parseAnyFloat(v2.SkeletalMuscleMass),
+
+				User:   v2.User.Name,
+				Source: v2.User.DeviceID,
+			}
+			*weights = append(*weights, w)
+
+		case 3:
+			var v2 struct {
+				BMI         string `json:"bmi"`
+				BodyRes     string `json:"bodyRes"`
+				BodyRes2    string `json:"bodyRes2"`
+				BodyResData string `json:"bodyResData"`
+				HeartRate   int    `json:"heartRate"`
+				Mid         string `json:"mid"`
+				Time        string `json:"time"`
+				User        struct {
+					//AccountId        int64   `json:"accountId"`
+					//Birth            int64   `json:"birth"`
+					//CreateTime       int64   `json:"createTime"`
+					//Height           int     `json:"height"`
+					//Icon             string  `json:"icon"`
+					//Id               int     `json:"id"`
+					Name string `json:"name"`
+					//Sex              int     `json:"sex"`
+					//Type             int     `json:"type"`
+					//UserId           int64   `json:"userId"`
+					//WeightTarget     float32 `json:"weightTarget"`
+					//WeightUpdateTime int     `json:"weightUpdateTime"`
+				} `json:"user"`
+				Weight string `json:"weight"`
+			}
+
+			if err = json.Unmarshal([]byte(v1.Data), &v2); err != nil {
+				return
+			}
+
+			w := &core.Weight{
+				Date:      time.UnixMilli(parseInt64(v2.Time)),
+				Weight:    parseFloat(v2.Weight),
+				BMI:       parseFloat(v2.BMI),
+				HeartRate: v2.HeartRate,
+				User:      v2.User.Name,
+				Source:    v1.Did,
+			}
+
+			if v2.BodyResData != "" {
+				var v3 struct {
+					BodyFatRate        string `json:"bfp"`  // 12.1
+					MuscleMass         string `json:"slm"`  // 32.2
+					MoistureRate       string `json:"bwp"`  // 52.1
+					BoneMass           string `json:"bmc"`  // 1.6
+					VisceralFat        string `json:"vfl"`  // 5
+					ProteinRate        string `json:"pp"`   // 31
+					SkeletalMuscleMass string `json:"smm"`  // 15.39
+					BMI                string `json:"bmi"`  // 19.1
+					StandardWeightV2   string `json:"swt"`  // 46.2
+					MuscleControl      string `json:"mc"`   // 3.5
+					WeightControl      string `json:"wc"`   // 5.3
+					FatControl         string `json:"fc"`   // 2
+					WHR                string `json:"whr"`  // 1
+					Wl                 string `json:"wl"`   // 68.2
+					Hl                 string `json:"hl"`   // 70
+					BasalMetabolic     string `json:"bmr"`  // 1143
+					Bt                 string `json:"bt"`   // 1
+					BodyAge            string `json:"ma"`   // 14
+					BodyScore          string `json:"sbc"`  // 86
+					MuscleRate         string `json:"slp"`  // 84
+					BoneRate           string `json:"bmcp"` // 3.9
+					FatMass            string `json:"bfm"`  // 4.9
+					FatFreeBody        string `json:"ffm"`  // 35.8
+					BodyMoistureMass   string `json:"bwm"`  // 21.2
+					ProteinMass        string `json:"pm"`   // 12.6
+					Smi                string `json:"smi"`  // 7.2
+				}
+
+				if err = json.Unmarshal([]byte(v2.BodyResData), &v3); err != nil {
+					return
+				}
+
+				w.BodyFat = parseFloat(v3.BodyFatRate)
+				w.BodyWater = parseFloat(v3.MoistureRate)
+				w.BoneMass = parseFloat(v3.BoneMass)
+
+				w.MetabolicAge = parseInt(v3.BodyAge)
+				w.MuscleMass = parseFloat(v3.MuscleMass)
+				w.ProteinMass = parseFloat(v3.ProteinMass)
+				w.VisceralFat = parseInt(v3.VisceralFat)
+
+				w.BasalMetabolism = parseInt(v3.BasalMetabolic)
+				w.BodyScore = parseInt(v3.BodyScore)
+				w.SkeletalMuscleMass = parseFloat(v3.SkeletalMuscleMass)
+			}
+
+			*weights = append(*weights, w)
+		}
+	}
+
+	if len(items) < 20 {
+		return 0, nil
+	}
+
+	return items[19].CreateTime, nil
+}
+
+func MiFitnessURL(region string) string {
 	switch region {
 	case "", "cn":
 		return "https://hlth.io.mi.com"
@@ -451,16 +567,34 @@ func baseURL(region string) string {
 	return ""
 }
 
-func unmarshalProxyResp(data []byte, v any) error {
+//func XiaomiHomeURL(region string) string {
+//	switch region {
+//	case "", "cn":
+//		return "https://api.io.mi.com/app"
+//	case "de", "i2", "ru", "sg", "us":
+//		return "https://" + region + ".api.io.mi.com/app"
+//	}
+//	return ""
+//}
+
+func readProxyResponse(data []byte) ([]byte, error) {
 	var res1 struct {
 		Resp string `json:"resp"`
 	}
-
 	if err := json.Unmarshal(data, &res1); err != nil {
-		return err
+		return nil, err
 	}
 
-	return json.Unmarshal([]byte(res1.Resp), v)
+	var res2 struct {
+		Code    int             `json:"code"`
+		Message string          `json:"message"`
+		Result  json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal([]byte(res1.Resp), &res2); err != nil {
+		return nil, err
+	}
+
+	return res2.Result, nil
 }
 
 func parseInt(s string) int {
@@ -476,4 +610,26 @@ func parseInt64(s string) int64 {
 func parseFloat(s string) float32 {
 	f, _ := strconv.ParseFloat(s, 64)
 	return float32(f)
+}
+
+func parseAnyInt(v any) int {
+	switch v.(type) {
+	case string:
+		return parseInt(v.(string))
+	case int:
+		return v.(int)
+	}
+	return 0
+}
+
+func parseAnyFloat(v any) float32 {
+	switch v.(type) {
+	case string:
+		return parseFloat(v.(string))
+	case int:
+		return float32(v.(int))
+	case float64:
+		return float32(v.(float64))
+	}
+	return 0
 }
