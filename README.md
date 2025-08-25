@@ -4,7 +4,7 @@ Application for synchronizing smart scale data between different ecosystems.
 
 **Features:**
 
-- Load data from [Garmin], [Home Assistant], [Mi Fitness], [My TANITA], [Picooc], [Zepp Life], [CSV], [JSON]
+- Load data from [Garmin], [Home Assistant], [Mi Fitness], [My TANITA], [Picooc], [Xiaomi Home], [Zepp Life], [CSV], [JSON]
 - Save data to [Garmin], [Home Assistant], [Zepp Life], [CSV], [JSON]
 - Support params: `Weight`, `BMI`, `Body Fat`, `Body Water`, `Bone Mass`, `Metabolic Age`, `Muscle Mass`, `Physique Rating`, `ProteinMass`, `Visceral Fat`, `Basal Metabolism`, `Heart Rate`, `Skeletal Muscle Mass`
 - Support multiple users data
@@ -16,6 +16,7 @@ Application for synchronizing smart scale data between different ecosystems.
 [Mi Fitness]: https://play.google.com/store/apps/details?id=com.xiaomi.wearable
 [My TANITA]: https://mytanita.eu/
 [Picooc]: https://play.google.com/store/apps/details?id=com.picooc.international
+[Xiaomi Home]: https://play.google.com/store/apps/details?id=com.xiaomi.smarthome
 [Zepp Life]: https://play.google.com/store/apps/details?id=com.xiaomi.hm.health
 [CSV]: https://en.wikipedia.org/wiki/Comma-separated_values
 [JSON]: https://en.wikipedia.org/wiki/JSON
@@ -31,7 +32,9 @@ Application for synchronizing smart scale data between different ecosystems.
   * [Configuration](#configuration)
     * [To: Garmin](#to-garmin)
     * [From: Garmin](#from-garmin)
-    * [From: Xiaomi Mi Fitness](#from-xiaomi-mi-fitness)
+    * [From: Xiaomi](#from-xiaomi)
+    * [From: Mi Fitness](#from-mi-fitness)
+    * [From: Xiaomi Home](#from-xiaomi-home)
     * [From: Zepp Life](#from-zepp-life)
     * [To: Zepp Life](#to-zepp-life)
     * [From: My TANINA](#from-my-tanina)
@@ -76,8 +79,8 @@ sync_alex_zepp:
   expr:
     Weight: 'BodyFat == 0 || Date >= date("2024-11-25") ? 0 : Weight'
 
-sync_alex_xiaomi:
-  from: xiaomi alex@gmail.com xiaomi-password
+sync_alex_mifitness:
+  from: mifitness alex@gmail.com xiaomi-password
   to: garmin alex@gmail.com garmin-password
   expr:
     Weight: 'BodyFat == 0 ? 0 : Weight'
@@ -113,19 +116,55 @@ sync_garmin:
   to: csv alex_garmin.csv
 ```
 
-### From: Xiaomi Mi Fitness
+### From: Xiaomi
+
+Xiaomi scales, depending on the model, are supported in different applications - [Mi Fitness], [Xiaomi Home], [Zepp Life].
+
+**Mi Body Composition Scale 2** (`XMTZC05HM`)
+
+- Supported in the **Zepp Life** app
+  - Get user data: `from: zepp/xiaomi alex@gmail.com xiaomi-password`
+  - Get other user data: `from: zepp/xiaomi alex@gmail.com xiaomi-password Yulia`
+
+**Mi Body Composition Scale S400 CN** (`MJTZC01YM`, `yunmai.scales.ms103`)
+
+- **China version**
+- Supported in the **Mi Fitness** app in China region
+  - Get user data: `from: mifitness alex@gmail.com xiaomi-password`
+  - Get scale data: `from: mifitness alex@gmail.com xiaomi-password yunmai.scales.ms103`
+- Supported in the **Mi Fitness** app in Euro region (ONLY via [Vevs mod](https://rumihome.ru/prilozheniya/mihome-vevs))
+  - Get user data: `from: mifitness alex@gmail.com ru`
+  - Get scale data: `from: mifitness alex@gmail.com xiaomi-password yunmai.scales.ms103`
+- Supported in the **Xiaomi Home** app
+  - Get scale data: `from: xiaomihome alex@gmail.com xiaomi-password cn yunmai.scales.ms103`
+
+**Mi Body Composition Scale S400 EU** (`MJTZC01YM`, `yunmai.scales.ms104`)
+
+- **Euro version**
+- Not supported in the **Mi Fitness** app
+- Supported in the **Xiaomi Home** app in Euro region
+  - Get scale data: `from: xiaomihome alex@gmail.com xiaomi-password ru yunmai.scales.ms104`
+
+**Xiaomi 8-Electrode Body Composition Scale CN** (`XMTZC01YM`, `yunmai.scales.ms3001`)
+
+- **China version**
+- Supported in the **Mi Fitness** app
+  - Get user data: `from: mifitness alex@gmail.com xiaomi-password`
+- Not supported in the **Xiaomi Home** app
+
+### From: Mi Fitness
 
 Tested on scales:
 
-- Mi Body Composition Scale S400 (MJTZC01YM) - getting other users data is supported.
-- Xiaomi 8-Electrode Body Composition Scale (XMTZC01YM) - getting other users data is not supported yet.
+- **Mi Body Composition Scale S400 CN** (`MJTZC01YM`, `yunmai.scales.ms103`) - getting other users data is supported.
+- **Xiaomi 8-Electrode Body Composition Scale CN** (`XMTZC01YM`, `yunmai.scales.ms3001`) - getting other users data is not supported yet.
 
 **Example.** Get data from all scales of the main user (China region):
 
 ```yaml
-sync_xiaomi:
-  from: xiaomi {username} {password}
-  to: csv alex_xiaomi.csv
+sync_mifitness:
+  from: mifitness {username} {password}
+  to: csv alex_mifitness.csv
 ```
 
 **Example.** Get data from all scales of the main user (other region):
@@ -137,17 +176,17 @@ sync_xiaomi:
 - `us` (United States)
 
 ```yaml
-sync_xiaomi:
-  from: xiaomi {username} {password} {region}
-  to: csv alex_xiaomi_region.csv
+sync_mifitness:
+  from: mifitness {username} {password} {region}
+  to: csv alex_mifitness_region.csv
 ```
 
 **Example.** Get the data of all users from specific scales:
 
 ```yaml
-sync_xiaomi:
-  from: xiaomi {username} {password} {scales model}
-  to: csv all_users_xiaomi.csv
+sync_mifitness:
+  from: mifitness {username} {password} {scales model}
+  to: csv all_users_mifitness.csv
 ```
 
 - You can check scales model name from Mi Fitness app > Device > Scale > About device > Device model.
@@ -156,9 +195,39 @@ sync_xiaomi:
 **Example:**
 
 ```yaml
-sync_yulia_xiaomi:
-  from: xiaomi alex@gmail.com xiaomi-password yunmai.scales.ms103
-  to: csv yulia_xiaomi.csv
+sync_yulia_mifitness:
+  from: mifitness alex@gmail.com xiaomi-password yunmai.scales.ms103
+  to: csv yulia_mifitness.csv
+  expr:
+    Weight: 'User == "Yulia" ? Weight : 0'
+```
+
+### From: Xiaomi Home
+
+Tested on scales:
+
+- **Mi Body Composition Scale S400 EU** (`MJTZC01YM`, `yunmai.scales.ms104`) - getting other users data is supported.
+
+**Example.** Get the data of all users from specific scales and region:
+
+- `de` (Europe)
+- `i2` (India)
+- `ru` (Russia)
+- `sg` (Singapore)
+- `us` (United States)
+
+```yaml
+sync_xiaomihome:
+  from: xiaomihome {username} {password} {region} {scales model}
+  to: csv all_users_xiaomihome.csv
+```
+
+**Example:**
+
+```yaml
+sync_yulia_xiaomihome:
+  from: xiaomihome alex@gmail.com xiaomi-password ru yunmai.scales.ms104
+  to: csv yulia_xiaomihome.csv
   expr:
     Weight: 'User == "Yulia" ? Weight : 0'
 ```
@@ -391,7 +460,7 @@ Add to `scaleconnect.yaml`:
 
 ```yaml
 sync_hass:
-  from: xiaomi alex@gmail.com xiaomi-password
+  from: mifitness alex@gmail.com xiaomi-password
   to: json/latest http://192.168.1.123:8123/api/webhook/594b7e73-1f0f-4c3c-aded-eeaee78a6790
 ```
 
@@ -474,7 +543,7 @@ sync_alex_zepp:
 Or I bought a new **Xiaomi 8-Electrode Scale** in addition to the old one **Xiaomi S400**. Now the S400 shows a completely wrong fat percentage. But I want to leave the weights from ols scales because they have **skeletal muscle mass** data, and the new scales don't have this param. Also, I want to ignore weighing without fat information.
 
 ```yaml
-sync_alex_xiaomi:
+sync_alex_mifitness:
   expr:
     Weight: 'BodyFat == 0 ? 0 : Weight'  # ignore weighing without fat information
     BodyFat: 'Date >= date("2025-04-01") && Source == "blt.3.1abcdefabcd00" ? 0 : BodyFat'  # zero body fat from old scales
