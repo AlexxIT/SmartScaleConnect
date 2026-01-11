@@ -526,6 +526,47 @@ func unmarshalScaleData(data []byte, weights *[]*core.Weight) (ts int64, err err
 					BodyMoistureMass   string `json:"bwm"`  // 21.2
 					ProteinMass        string `json:"pm"`   // 12.6
 					Smi                string `json:"smi"`  // 7.2
+					// xiaomi.scales.ms116 specific data
+					RightArmMuscleMass       string `json:"ram"`       // 2.7
+					LeftArmMuscleMass        string `json:"lam"`       // 2.6
+					RightLegMuscleMass       string `json:"rlm"`       // 8.7
+					LeftLegMuscleMass        string `json:"llm"`       // 8.7
+					TrunkMuscleMass          string `json:"tm"`        // 23.6
+					RightArmMusclePercent    string `json:"ram_p"`     // 83.1
+					LeftArmMusclePercent     string `json:"lam_p"`     // 80.0
+					RightLegMusclePercent    string `json:"rlm_p"`     // 96.3
+					LeftLegMusclePercent     string `json:"llm_p"`     // 96.3
+					TrunkMusclePercent       string `json:"tm_p"`      // 91.1
+					RightArmMuscleScore      string `json:"ram_s"`     // -1.0
+					LeftArmMuscleScore       string `json:"lam_s"`     // -1.0
+					RightLegMuscleScore      string `json:"rlm_s"`     // 0.0
+					LeftLegMuscleScore       string `json:"llm_s"`     // 0.0
+					TrunkMuscleScore         string `json:"tm_s"`      // 0.0
+					RightArmFatMass          string `json:"rafm"`      // 1.1
+					LeftArmFatMass           string `json:"larm"`      // 1.1
+					RightLegFatMass          string `json:"rlfm"`      // 2.7
+					LeftLegFatMass           string `json:"llfm"`      // 2.7
+					TrunkFatMass             string `json:"tfm"`       // 8.8
+					RightArmFatPercent       string `json:"rafm_p"`    // 181.3
+					LeftArmFatPercent        string `json:"lafm_p"`    // 181.3
+					RightLegFatPercent       string `json:"rlfm_p"`    // 155.3
+					LeftLegFatPercent        string `json:"llfm_p"`    // 155.3
+					TrunkFatPercent          string `json:"tfm_p"`     // 206.3
+					RightArmFatScore         string `json:"rafm_s"`    // 1.0
+					LeftArmFatScore          string `json:"larm_s"`    // 1.0
+					RightLegFatScore         string `json:"rlfm_s"`    // 0.0
+					LeftLegFatScore          string `json:"llfm_s"`    // 0.0
+					TrunkFatScore            string `json:"tfm_s"`     // 1.0
+					LimbBMI                  string `json:"limbmi"`    // 7.4
+					RecommendedCaloricIntake string `json:"cin"`       // 2237.0
+					Bs                       string `json:"bs"`        // 4.0
+					Eoma                     string `json:"eoma"`      // 0.0
+					Eoml                     string `json:"eoml"`      // 0.0
+					Eomb                     string `json:"eomb"`      // 1.0
+					Eofa                     string `json:"eofa"`      // 0.0
+					Eofl                     string `json:"eofl"`      // 0.0
+					Eofb                     string `json:"eofb"`      // 1.0
+					BfpState                 string `json:"bfp_state"` // 0.0
 				}
 
 				if err = json.Unmarshal([]byte(v2.BodyResData), &v3); err != nil {
@@ -536,14 +577,16 @@ func unmarshalScaleData(data []byte, weights *[]*core.Weight) (ts int64, err err
 				w.BodyWater = parseFloat(v3.MoistureRate)
 				w.BoneMass = parseFloat(v3.BoneMass)
 
-				w.MetabolicAge = parseInt(v3.BodyAge)
+				w.MetabolicAge = int(parseFloat(v3.BodyAge))
 				w.MuscleMass = parseFloat(v3.MuscleMass)
 				w.ProteinMass = parseFloat(v3.ProteinMass)
-				w.VisceralFat = parseInt(v3.VisceralFat)
+				w.VisceralFat = int(parseFloat(v3.VisceralFat))
 
-				w.BasalMetabolism = parseInt(v3.BasalMetabolic)
-				w.BodyScore = parseInt(v3.BodyScore)
+				w.BasalMetabolism = int(parseFloat(v3.BasalMetabolic))
+				w.BodyScore = int(parseFloat(v3.BodyScore))
 				w.SkeletalMuscleMass = parseFloat(v3.SkeletalMuscleMass)
+
+				w.PhysiqueRating = int(parseFloat(v3.Bt))
 			}
 
 			*weights = append(*weights, w)
