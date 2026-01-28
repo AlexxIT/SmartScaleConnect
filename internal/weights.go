@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"slices"
@@ -118,7 +119,7 @@ func SetWeights(config string, src []*core.Weight) error {
 	case "csv", "json":
 		return writeFile(config, src)
 
-	case AccGarmin, AccZeppXiaomi:
+	case AccGarmin, AccZeppXiaomi, AccMiFitness:
 		return appendAccount(config, src)
 
 	case "json/latest":
@@ -212,6 +213,8 @@ func appendAccount(config string, src []*core.Weight) error {
 		return err
 	}
 
+	log.Printf("[sync] Source has %d weights, destination has %d weights", len(src), len(dst))
+
 	acc, err := GetAccount(strings.Fields(config))
 	if err != nil {
 		return err
@@ -220,6 +223,7 @@ func appendAccount(config string, src []*core.Weight) error {
 	client := acc.(core.AccountWithAddWeights)
 
 	var add []*core.Weight
+	var skipped, replaced int
 
 	for _, s := range src {
 		i := slices.IndexFunc(dst, func(d *core.Weight) bool {
@@ -235,12 +239,14 @@ func appendAccount(config string, src []*core.Weight) error {
 				}
 			} else if !client.Equal(s, d) {
 				// replace
+				replaced++
 				if err = client.DeleteWeight(d); err != nil {
 					return err
 				}
 				add = append(add, s)
 			} else {
-				// skip
+				// skip (duplicate)
+				skipped++
 			}
 		} else {
 			if s.Weight > 0 {
@@ -250,6 +256,8 @@ func appendAccount(config string, src []*core.Weight) error {
 			}
 		}
 	}
+
+	log.Printf("[sync] Skipped %d duplicates, replacing %d, adding %d new", skipped, replaced, len(add))
 
 	if len(add) == 0 {
 		return nil

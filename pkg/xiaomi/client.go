@@ -19,6 +19,9 @@ type Client struct {
 	userID    int64  // for some requests
 	ssecurity []byte // for encryption
 	passToken string
+	region    string // for regional API (de, ru, sg, us, i2)
+
+	auth map[string]string // for multi-step auth (captcha, 2FA)
 }
 
 func NewClient(app string) *Client {
@@ -33,6 +36,9 @@ func (c *Client) GetAllWeights() ([]*core.Weight, error) {
 }
 
 func (c *Client) getAllWeights(region string) ([]*core.Weight, error) {
+	// Store region for use in AddWeights
+	c.region = region
+
 	var weights []*core.Weight
 
 	ts := time.Now().Add(24 * time.Hour).Unix()
@@ -576,6 +582,174 @@ func MiFitnessURL(region string) string {
 //	}
 //	return ""
 //}
+
+// AddWeights implements core.AccountWithAddWeights interface
+func (c *Client) AddWeights(weights []*core.Weight) error {
+	if len(weights) == 0 {
+		return nil
+	}
+
+	zoneOffset := c.getZoneOffset()
+	baseURL := MiFitnessURL(c.region)
+	phoneID := fmt.Sprintf("ssc_%d", c.userID)
+
+	for _, w := range weights {
+		value := weightToMiFitnessValue(w)
+		valueJSON, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+
+		sid := w.Source
+		if sid == "" {
+			sid = fmt.Sprintf("ssc.%d", w.Date.Unix())
+		}
+
+		params := map[string]any{
+			"phone_id": phoneID,
+			"data_list": []any{
+				map[string]any{
+					"sid":         sid,
+					"key":         "weight",
+					"time":        w.Date.Unix(),
+					"value":       string(valueJSON),
+					"zone_offset": zoneOffset,
+				},
+			},
+		}
+
+		paramsJSON, err := json.Marshal(params)
+		if err != nil {
+			return err
+		}
+
+		if _, err = c.Request(baseURL, "/app/v1/data/up_fitness_data", string(paramsJSON), nil); err != nil {
+			return fmt.Errorf("mifitness: add weight failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// getZoneOffset returns timezone offset in seconds, inferring from region if in UTC
+func (c *Client) getZoneOffset() int {
+	_, offset := time.Now().Zone()
+	if offset != 0 || c.region == "" {
+		return offset
+	}
+	// Fallback for Docker (UTC) based on region
+	switch c.region {
+	case "de", "eu":
+		return 3600 // CET
+	case "ru":
+		return 10800 // MSK
+	case "sg":
+		return 28800 // SGT
+	case "us":
+		return -18000 // EST
+	}
+	return 0
+}
+
+// DeleteWeight implements core.AccountWithAddWeights interface
+func (c *Client) DeleteWeight(weight *core.Weight) error {
+	sid := weight.Source
+	if sid == "" {
+		sid = fmt.Sprintf("ssc.%d", weight.Date.Unix())
+	}
+
+	// DeleteFitnessData format: phone_id + keys array
+	// FitnessDataKey requires: sid, key, time
+	params := map[string]any{
+		"phone_id": fmt.Sprintf("ssc_%d", c.userID),
+		"keys": []any{
+			map[string]any{
+				"sid":  sid,
+				"key":  "weight",
+				"time": weight.Date.Unix(),
+			},
+		},
+	}
+
+	paramsJSON, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Request(MiFitnessURL(c.region), "/app/v1/data/delete_fitness_data", string(paramsJSON), nil)
+	if err != nil {
+		return fmt.Errorf("mifitness: delete weight failed: %w", err)
+	}
+
+	return nil
+}
+
+// Equal implements core.AccountWithAddWeights interface
+func (c *Client) Equal(w1, w2 *core.Weight) bool {
+	return equalFloat(w1.Weight, w2.Weight) &&
+		equalFloat(w1.BMI, w2.BMI) &&
+		equalFloat(w1.BodyFat, w2.BodyFat) &&
+		equalFloat(w1.BodyWater, w2.BodyWater) &&
+		equalFloat(w1.BoneMass, w2.BoneMass) &&
+		equalFloat(w1.MuscleMass, w2.MuscleMass) &&
+		w1.MetabolicAge == w2.MetabolicAge &&
+		w1.VisceralFat == w2.VisceralFat &&
+		w1.BasalMetabolism == w2.BasalMetabolism &&
+		w1.BodyScore == w2.BodyScore &&
+		w1.HeartRate == w2.HeartRate &&
+		equalFloat(w1.SkeletalMuscleMass, w2.SkeletalMuscleMass) &&
+		equalFloat(w1.ProteinMass, w2.ProteinMass)
+}
+
+
+// JSON structure for Mi Fitness data
+type miFitnessValue struct {
+	Time             int64   `json:"time"`
+	Weight           float32 `json:"weight"`
+	BMI              float32 `json:"bmi,omitempty"`
+	BodyFatRate      float32 `json:"body_fat_rate,omitempty"`
+	MoistureRate     float32 `json:"moisture_rate,omitempty"`
+	BoneMass         float32 `json:"bone_mass,omitempty"`
+	BodyAge          int     `json:"body_age,omitempty"`
+	MuscleMass       float32 `json:"muscle_mass,omitempty"`
+	ProteinMass      float32 `json:"protein_mass,omitempty"`
+	VisceralFat      float32 `json:"visceral_fat,omitempty"`
+	BasalMetabolism  int     `json:"basal_metabolism,omitempty"`
+	BodyScore        int     `json:"body_score,omitempty"`
+	BPM              int     `json:"bpm,omitempty"`
+	SkeletalMuscleMass float32 `json:"skeletal_muscle_mass,omitempty"`
+}
+
+// Converts core.Weight to Mi Fitness JSON value format
+func weightToMiFitnessValue(w *core.Weight) *miFitnessValue {
+	return &miFitnessValue{
+		Time:               w.Date.Unix(),
+		Weight:             w.Weight,
+		BMI:                w.BMI,
+		BodyFatRate:        w.BodyFat,
+		MoistureRate:       w.BodyWater,
+		BoneMass:           w.BoneMass,
+		BodyAge:            w.MetabolicAge,
+		MuscleMass:         w.MuscleMass,
+		ProteinMass:        w.ProteinMass,
+		VisceralFat:        float32(w.VisceralFat),
+		BasalMetabolism:    w.BasalMetabolism,
+		BodyScore:          w.BodyScore,
+		BPM:                w.HeartRate,
+		SkeletalMuscleMass: w.SkeletalMuscleMass,
+	}
+}
+
+// equalFloat compares two float32 values with tolerance
+func equalFloat(f1, f2 float32) bool {
+	if f1 == f2 {
+		return true
+	}
+	if f1 > f2 {
+		return f1-f2 < 0.1
+	}
+	return f2-f1 < 0.1
+}
 
 func readProxyResponse(data []byte) ([]byte, error) {
 	var res1 struct {

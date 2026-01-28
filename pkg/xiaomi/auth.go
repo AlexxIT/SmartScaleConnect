@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,18 +28,104 @@ const (
 	AppMiFitness  = "miothealth"
 )
 
+type LoginError struct {
+	Captcha     []byte `json:"captcha,omitempty"`
+	VerifyPhone string `json:"verify_phone,omitempty"`
+	VerifyEmail string `json:"verify_email,omitempty"`
+}
+
+func (l *LoginError) Error() string {
+	return ""
+}
+
 func (c *Client) Login(username, password string) error {
-	res1, err := c.serviceLogin()
+	res, err := c.client.Get("https://account.xiaomi.com/pass/serviceLogin?_json=true&sid=" + c.sid)
 	if err != nil {
 		return err
 	}
 
-	res2, err := c.serviceLogin2(res1, username, password)
+	var v1 struct {
+		Qs       string `json:"qs"`
+		Sign     string `json:"_sign"`
+		Sid      string `json:"sid"`
+		Callback string `json:"callback"`
+	}
+	body, err := readLoginResponse(res)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &v1); err != nil {
+		return err
+	}
+
+	hash := fmt.Sprintf("%X", md5.Sum([]byte(password)))
+
+	form := url.Values{
+		"_json":    {"true"},
+		"hash":     {hash},
+		"sid":      {v1.Sid},
+		"callback": {v1.Callback},
+		"_sign":    {v1.Sign},
+		"qs":       {v1.Qs},
+		"user":     {username},
+	}
+	cookies := "deviceId=" + core.RandString(16, 62)
+
+	if c.auth != nil && c.auth["captcha_code"] != "" {
+		form.Set("captCode", c.auth["captcha_code"])
+		cookies += "; ick=" + c.auth["ick"]
+	}
+
+	req, err := http.NewRequest("POST", "https://account.xiaomi.com/pass/serviceLoginAuth2", strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Cookie", cookies)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err = c.client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	return c.serviceLogin3(res2.Location)
+	var v2 struct {
+		Ssecurity []byte `json:"ssecurity"`
+		PassToken string `json:"passToken"`
+		Location  string `json:"location"`
+
+		CaptchaURL      string `json:"captchaURL"`
+		NotificationURL string `json:"notificationUrl"`
+	}
+	body, err = readLoginResponse(res)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &v2); err != nil {
+		return err
+	}
+
+	c.auth = map[string]string{
+		"username": username,
+		"password": password,
+	}
+
+	if v2.CaptchaURL != "" {
+		return c.getCaptcha(v2.CaptchaURL)
+	}
+
+	if v2.NotificationURL != "" {
+		return c.authStart(v2.NotificationURL)
+	}
+
+	if v2.Location == "" {
+		return fmt.Errorf("xiaomi: %s", body)
+	}
+
+	c.auth = nil
+	c.ssecurity = v2.Ssecurity
+	c.passToken = v2.PassToken
+
+	return c.finishAuth(v2.Location)
 }
 
 type loginResponse1 struct {
@@ -141,20 +228,241 @@ func (c *Client) serviceLogin2(res1 *loginResponse1, username, password string) 
 	return &res2, nil
 }
 
-func (c *Client) serviceLogin3(location string) error {
+func (c *Client) LoginWithCaptcha(captcha string) error {
+	if c.auth == nil || c.auth["ick"] == "" {
+		return errors.New("wrong login step: captcha not requested")
+	}
+
+	c.auth["captcha_code"] = captcha
+
+	if c.auth["flag"] != "" {
+		return c.sendTicket()
+	}
+
+	return c.Login(c.auth["username"], c.auth["password"])
+}
+
+func (c *Client) LoginWithVerify(ticket string) error {
+	if c.auth == nil || c.auth["flag"] == "" {
+		return errors.New("wrong login step: verification not requested")
+	}
+
+	form := url.Values{
+		"_flag":   {c.auth["flag"]},
+		"ticket":  {ticket},
+		"trust":   {"false"},
+		"_json":   {"true"},
+	}
+
+	req, err := http.NewRequest("POST", "https://account.xiaomi.com/identity/auth/verify"+c.verifyName(), strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Cookie", "identity_session="+c.auth["identity_session"])
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	var v1 struct {
+		Location string `json:"location"`
+	}
+	body, err := readLoginResponse(res)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &v1); err != nil {
+		return err
+	}
+	if v1.Location == "" {
+		return fmt.Errorf("xiaomi: %s", body)
+	}
+
+	return c.finishAuth(v1.Location)
+}
+
+func (c *Client) getCaptcha(captchaURL string) error {
+	res, err := c.client.Get("https://account.xiaomi.com" + captchaURL)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	c.auth["ick"] = findCookie(res, "ick")
+
+	return &LoginError{
+		Captcha: body,
+	}
+}
+
+func findCookie(res *http.Response, name string) string {
+	for _, cookie := range res.Cookies() {
+		if cookie.Name == name {
+			return cookie.Value
+		}
+	}
+	return ""
+}
+
+func (c *Client) authStart(notificationURL string) error {
+	rawURL := strings.Replace(notificationURL, "/fe/service/identity/authStart", "/identity/list", 1)
+	res, err := c.client.Get(rawURL)
+	if err != nil {
+		return err
+	}
+
+	var v1 struct {
+		Code int `json:"code"`
+		Flag int `json:"flag"`
+	}
+	body, err := readLoginResponse(res)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &v1); err != nil {
+		return err
+	}
+
+	c.auth["flag"] = strconv.Itoa(v1.Flag)
+	c.auth["identity_session"] = findCookie(res, "identity_session")
+
+	return c.sendTicket()
+}
+
+func (c *Client) verifyName() string {
+	switch c.auth["flag"] {
+	case "4":
+		return "Phone"
+	case "8":
+		return "Email"
+	}
+	return ""
+}
+
+func (c *Client) sendTicket() error {
+	name := c.verifyName()
+	cookies := "identity_session=" + c.auth["identity_session"]
+
+	req, err := http.NewRequest("GET", "https://account.xiaomi.com/identity/auth/verify"+name, nil)
+	if err != nil {
+		return err
+	}
+	req.URL.RawQuery = "_flag=" + c.auth["flag"] + "&_json=true"
+	req.Header.Set("Cookie", cookies)
+
+	res, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	var v1 struct {
+		Code        int    `json:"code"`
+		MaskedPhone string `json:"maskedPhone"`
+		MaskedEmail string `json:"maskedEmail"`
+	}
+	body, err := readLoginResponse(res)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &v1); err != nil {
+		return err
+	}
+
+	captCode := c.auth["captcha_code"]
+	if captCode != "" {
+		cookies += "; ick=" + c.auth["ick"]
+	}
+
+	form := url.Values{
+		"_json": {"true"},
+		"icode": {captCode},
+		"retry": {"0"},
+	}
+
+	req, err = http.NewRequest("POST", "https://account.xiaomi.com/identity/auth/send"+name+"Ticket", strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Cookie", cookies)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err = c.client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	var v2 struct {
+		Code       int    `json:"code"`
+		CaptchaURL string `json:"captchaURL"`
+	}
+	body, err = readLoginResponse(res)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &v2); err != nil {
+		return err
+	}
+
+	if v2.CaptchaURL != "" {
+		return c.getCaptcha(v2.CaptchaURL)
+	}
+
+	if v2.Code != 0 {
+		return fmt.Errorf("xiaomi: %s", body)
+	}
+
+	return &LoginError{
+		VerifyPhone: v1.MaskedPhone,
+		VerifyEmail: v1.MaskedEmail,
+	}
+}
+
+func (c *Client) finishAuth(location string) error {
 	res, err := c.client.Get(location)
 	if err != nil {
 		return err
 	}
 	defer res.Body.Close()
 
-	for _, s := range res.Header["Set-Cookie"] {
-		s, _, _ = strings.Cut(s, ";")
-		if len(c.cookies) > 0 {
-			c.cookies += "; "
+	var cUserId, serviceToken string
+
+	for res != nil {
+		for _, cookie := range res.Cookies() {
+			switch cookie.Name {
+			case "userId":
+				userID, _ := strconv.ParseInt(cookie.Value, 10, 64)
+				c.userID = userID
+			case "cUserId":
+				cUserId = cookie.Value
+			case "serviceToken":
+				serviceToken = cookie.Value
+			case "passToken":
+				c.passToken = cookie.Value
+			}
 		}
-		c.cookies += s
+
+		if s := res.Header.Get("Extension-Pragma"); s != "" {
+			var v1 struct {
+				Ssecurity []byte `json:"ssecurity"`
+			}
+			if err = json.Unmarshal([]byte(s), &v1); err != nil {
+				return err
+			}
+			c.ssecurity = v1.Ssecurity
+		}
+
+		res = res.Request.Response
 	}
+
+	c.cookies = fmt.Sprintf("userId=%d; cUserId=%s; serviceToken=%s", c.userID, cUserId, serviceToken)
 
 	return nil
 }
@@ -339,11 +647,15 @@ func (c *Client) LoginWithToken(token string) error {
 	c.ssecurity = res2.Ssecurity
 	c.userID = res2.UserId
 
-	return c.serviceLogin3(res2.Location)
+	return c.finishAuth(res2.Location)
 }
 
 func (c *Client) Token() string {
 	return fmt.Sprintf("%d:%s", c.userID, c.passToken)
+}
+
+func (c *Client) UserToken() (string, string) {
+	return fmt.Sprintf("%d", c.userID), c.passToken
 }
 
 const loginPrefix = "&&&START&&&"

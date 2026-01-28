@@ -31,8 +31,6 @@ RUN chmod a+x /run.sh
 
 COPY --from=build /build/scaleconnect /usr/local/bin/
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/run.sh"]
 VOLUME /config
 WORKDIR /config
-
-CMD ["/run.sh"]

@@ -37,6 +37,7 @@ Application for synchronizing smart scale data between different ecosystems.
     * [From: Xiaomi Home](#from-xiaomi-home)
     * [From: Zepp Life](#from-zepp-life)
     * [To: Zepp Life](#to-zepp-life)
+    * [To: Mi Fitness](#to-mi-fitness)
     * [From: My TANINA](#from-my-tanina)
     * [From: Picooc](#from-picooc)
     * [From: Fitbit](#from-fitbit)
@@ -208,6 +209,36 @@ Tested on scales:
 
 - **Mi Body Composition Scale S400 EU** (`MJTZC01YM`, `yunmai.scales.ms104`) - getting other users data is supported.
 
+**Authentication.** When authentication requires two-factor verification, you must run the application **interactively** and **provide config file in parameters** (once, to obtain an auth token) so it can prompt you for the verification code. 
+
+**With Docker:**
+```
+docker run --rm -it -v "$(pwd)":/config scaleconnect -c scaleconnect.yaml
+```
+
+**Without Docker:**
+
+```
+go run . -c scaleconnect.yaml
+```
+
+Or build a binary and run it:
+
+```
+go build -o scaleconnect .
+./scaleconnect -c scaleconnect.yaml
+```
+
+Then it will ask for code:
+
+```
+2FA verification required
+Verification code sent to email: ***@email.com
+Enter verification code: <enter your code here>
+```
+
+Your auth token will be written into `scaleconnect.json`
+
 **Example.** Get the data of all users from specific scales and region:
 
 - `de` (Europe)
@@ -276,6 +307,29 @@ sync_zepp:
     Height: 172
   to: zepp/xiaomi {username} {password}
 ```
+
+### To: Mi Fitness
+
+You can upload data to [Mi Fitness].
+
+**Example.** Upload data to Mi Fitness from CSV (China region):
+
+```yaml
+sync_mifitness:
+  from: csv alex_data.csv
+  to: mifitness {username} {password}
+```
+
+**Example.** Upload data to Mi Fitness from CSV (other region):
+
+```yaml
+sync_mifitness:
+  from: csv alex_data.csv
+  to: mifitness {username} {password} {region}
+```
+
+Supported regions: `de` (Europe), `i2` (India), `ru` (Russia), `sg` (Singapore), `us` (United States).
+
 
 ### From: My TANINA
 
