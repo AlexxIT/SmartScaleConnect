@@ -88,7 +88,7 @@ func getWeights(config string) ([]*core.Weight, error) {
 		}
 		return acc.GetAllWeights()
 
-	case AccMiFitness, AccPicooc, AccXiaomi, AccZeppXiaomi:
+	case AccMiFitness, AccPicooc, AccXiaomi, AccZepp, AccZeppXiaomi:
 		acc, err := GetAccount(fields)
 		if err != nil {
 			return nil, err
@@ -118,7 +118,7 @@ func SetWeights(config string, src []*core.Weight) error {
 	case "csv", "json":
 		return writeFile(config, src)
 
-	case AccGarmin, AccZeppXiaomi:
+	case AccGarmin, AccZepp, AccZeppXiaomi:
 		return appendAccount(config, src)
 
 	case "json/latest":

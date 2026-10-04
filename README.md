@@ -236,8 +236,26 @@ sync_yulia_xiaomihome:
 
 **Limitations:**
 
-- Currently, only login via a Xiaomi account is supported.
+- Xiaomi accounts use `zepp/xiaomi`. Native Zepp accounts use `zepp` (email/password; initially uses the GB country code and US region).
+- Native login requires an account password; social sign-in credentials are not supported. Live authentication must be verified with your account. Network key rotation is not yet supported; this implementation uses the APK's default version-1 key.
 - When syncing, you are logged out of the mobile app. It is not known how this problem can be fixed.
+
+**Native Zepp account:**
+
+```yaml
+sync_zepp:
+  from: zepp alex@example.com zepp-password
+  to: csv alex_zepp.csv
+```
+
+Use `zepp` for uploading too, or append a family member name to the source as with `zepp/xiaomi`.
+To test native login without reading or writing scale data, run:
+
+```sh
+python3 scripts/test-zepp-login.py
+```
+
+The check requires Python 3, curl and OpenSSL. It prompts for credentials, encrypts the password request using the APK's default version-1 network key, and prints only login status or safe error diagnostics. It does not save tokens. Like other Zepp logins, it may log you out of the mobile app.
 
 Tested on scales:
 
