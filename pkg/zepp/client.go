@@ -15,7 +15,8 @@ import (
 )
 
 type Client struct {
-	client *http.Client
+	client        *http.Client
+	nativeAccount bool
 
 	appToken string // for auth
 	userID   string // for some requests

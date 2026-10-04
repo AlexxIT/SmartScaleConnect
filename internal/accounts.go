@@ -19,6 +19,7 @@ const (
 	AccTanita     = "tanita"
 	AccXiaomi     = "xiaomi"
 	AccXiaomiHome = "xiaomihome"
+	AccZepp       = "zepp"
 	AccZeppXiaomi = "zepp/xiaomi"
 )
 
@@ -61,6 +62,8 @@ func getAccount(fields []string, key string) (core.Account, error) {
 		acc = xiaomi.NewClient(xiaomi.AppMiFitness)
 	case AccXiaomiHome:
 		acc = xiaomi.NewClient(xiaomi.AppXiaomiHome)
+	case AccZepp:
+		acc = zepp.NewAccountClient()
 	case AccZeppXiaomi:
 		acc = zepp.NewClient()
 	default:
