@@ -237,7 +237,7 @@ sync_yulia_xiaomihome:
 **Limitations:**
 
 - Currently, only login via a Xiaomi account is supported.
-- When syncing, you are logged out of the mobile app. It is not known how this problem can be fixed.
+- The app logs in as a web client (like the Zepp data export page), so the mobile app stays logged in. Tokens saved by older versions are replaced by one new login; log in to the mobile app once more if an older version logged it out.
 
 Tested on scales:
 
