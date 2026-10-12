@@ -2,11 +2,11 @@ package zepp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/AlexxIT/SmartScaleConnect/pkg/xiaomi"
-	"github.com/google/uuid"
 )
 
 const paramsZeppLife = "_json=true&" +
@@ -22,18 +22,22 @@ func (c *Client) Login(username, password string) error {
 		return err
 	}
 
-	// country CN is OK
+	// Log in as a web client, like the user.huami.com data export pages do.
+	// Zepp keeps one session per phone-type client, so logging in as Zepp Life
+	// (app_name=com.xiaomi.hm.health, device_model=phone) logs the mobile app
+	// out, and using the app logs this session out in return. A web session
+	// coexists with the mobile app. Country CN is OK.
 	form := fmt.Sprintf(
-		"app_name=com.xiaomi.hm.health&"+
-			"app_version=6.14.0&"+
+		"app_name=com.huami.webapp&"+
+			"app_version=4.3.0&"+
 			"code=%s&"+
 			"country_code=CN&"+
-			"device_id=%s&"+
-			"device_model=phone&"+
-			"dn=api-mifit.zepp.com&"+
+			"device_id=02:00:00:00:00:00&"+
+			"device_model=web&"+
+			"dn=account.huami.com,api-user.huami.com,auth.huami.com,api-mifit.huami.com,api-open.huami.com&"+
 			"grant_type=request_token&"+
 			"third_name=xiaomi-hm-mifit",
-		code, uuid.NewString(),
+		code,
 	)
 
 	res, err := c.client.Post(
@@ -86,11 +90,19 @@ func (c *Client) Login(username, password string) error {
 	return nil
 }
 
+// tokenSuffix marks tokens of a web session. Tokens saved by older versions
+// belong to a mobile session and are not reused, so they get replaced once.
+const tokenSuffix = ":web"
+
 func (c *Client) LoginWithToken(token string) error {
+	token, ok := strings.CutSuffix(token, tokenSuffix)
+	if !ok {
+		return errors.New("zepp: token from an older version")
+	}
 	c.userID, c.appToken, _ = strings.Cut(token, ":")
 	return c.GetFamilyMembers()
 }
 
 func (c *Client) Token() string {
-	return c.userID + ":" + c.appToken
+	return c.userID + ":" + c.appToken + tokenSuffix
 }

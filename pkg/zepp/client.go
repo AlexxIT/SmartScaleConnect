@@ -29,6 +29,14 @@ func NewClient() *Client {
 	}
 }
 
+// setHeaders authorizes a request with the web-session app token. Web tokens
+// get HTTP 500 without appPlatform, and appname selects Zepp Life's data.
+func (c *Client) setHeaders(req *http.Request) {
+	req.Header.Set("apptoken", c.appToken)
+	req.Header.Set("appPlatform", "web")
+	req.Header.Set("appname", "com.xiaomi.hm.health")
+}
+
 func (c *Client) GetAllWeights() ([]*core.Weight, error) {
 	return c.GetFilterWeights("")
 }
@@ -53,7 +61,7 @@ func (c *Client) GetFilterWeights(name string) ([]*core.Weight, error) {
 			return nil, err
 		}
 
-		req.Header.Add("apptoken", c.appToken)
+		c.setHeaders(req)
 
 		res, err := c.client.Do(req)
 		if err != nil {
@@ -133,7 +141,7 @@ func (c *Client) GetFamilyMembers() error {
 		return err
 	}
 
-	req.Header.Add("apptoken", c.appToken)
+	c.setHeaders(req)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := c.client.Do(req)
@@ -237,7 +245,7 @@ func (c *Client) AddWeights(weights []*core.Weight) error {
 		return err
 	}
 
-	req.Header.Add("apptoken", c.appToken)
+	c.setHeaders(req)
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := c.client.Do(req)
@@ -269,7 +277,7 @@ func (c *Client) DeleteWeight(weight *core.Weight) error {
 		return err
 	}
 
-	req.Header.Add("apptoken", c.appToken)
+	c.setHeaders(req)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := c.client.Do(req)
